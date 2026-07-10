@@ -1,0 +1,27 @@
+{
+  "name": "gtd-planner",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "workspace:status": "echo GTD Planner demo workspace is ready",
+    "dev:api": "pnpm --filter @gtd-planner/api dev",
+    "dev:web": "pnpm --filter @gtd-planner/web dev",
+    "dev:demo": "concurrently -k -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
+    "build:web": "pnpm --filter @gtd-planner/web build",
+    "preview:web": "pnpm --filter @gtd-planner/web preview",
+    "tauri:dev": "pnpm --filter @gtd-planner/desktop dev",
+    "tauri:build": "pnpm --filter @gtd-planner/desktop build",
+    "cap:add:android": "pnpm --filter @gtd-planner/mobile cap:add:android",
+    "cap:add:ios": "pnpm --filter @gtd-planner/mobile cap:add:ios",
+    "cap:sync": "pnpm --filter @gtd-planner/mobile cap:sync",
+    "cap:open:android": "pnpm --filter @gtd-planner/mobile cap:open:android",
+    "cap:open:ios": "pnpm --filter @gtd-planner/mobile cap:open:ios",
+    "check": "pnpm --filter @gtd-planner/contracts check && pnpm --filter @gtd-planner/frontend-app check && pnpm --filter @gtd-planner/web check && pnpm --filter @gtd-planner/api check"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

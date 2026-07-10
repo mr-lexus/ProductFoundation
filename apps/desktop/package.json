@@ -1,0 +1,17 @@
+{
+  "name": "@gtd-planner/desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "LIBGL_ALWAYS_SOFTWARE=1 cargo tauri dev",
+    "build": "tauri build"
+  },
+  "dependencies": {
+    "@gtd-planner/contracts": "workspace:*",
+    "@gtd-planner/frontend-app": "workspace:*"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0"
+  }
+}

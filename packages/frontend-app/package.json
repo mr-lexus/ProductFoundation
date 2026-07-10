@@ -1,0 +1,21 @@
+{
+  "name": "@gtd-planner/frontend-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@gtd-planner/contracts": "workspace:*",
+    "@tanstack/react-query": "^5.64.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.0"
+  }
+}
