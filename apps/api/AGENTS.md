@@ -1,4 +1,4 @@
-# AI Development Rules — GTD Planner Backend
+# AI Development Rules — Application Backend
 
 ## Purpose
 
@@ -18,21 +18,33 @@ The goal is strong architecture, not accidental complexity.
 
 ## Technology Direction
 
-Current direction:
+Confirmed foundation:
 
 * TypeScript
-* RPC-first API style
-* Hono RPC or tRPC as transport layer
+* NestJS as the backend application framework
+* Fastify as the Nest HTTP adapter
+* contract-first, versioned RPC over JSON
+* Zod schemas in `packages/contracts`
+* modular monolith deployment
 
-Decision rule:
+NestJS owns modules, dependency injection, application lifecycle, controllers,
+global filters, and runtime composition. Fastify-specific code is allowed only
+at the HTTP transport edge.
 
-* Hono or tRPC may define the API edge
-* business logic must not depend on the chosen RPC framework
-* framework-specific code must stay at the transport boundary
+The frontend consumes shared procedure contracts and never imports Nest modules,
+controllers, providers, or implementation types from `apps/api`.
 
-The backend core must remain portable between Hono RPC and tRPC.
+NestJS decorators and DI tokens are allowed in `src/app` and
+`src/modules/*/transport`. Domain and application code remain plain TypeScript.
+Use explicit provider tokens/factories when connecting pure handlers and use
+cases to Nest DI.
 
-If a future switch between them would require rewriting use cases or domain rules, the architecture is wrong.
+Business logic must remain portable. Replacing Fastify or NestJS may require
+changes to composition and transport, but must not require rewriting use cases
+or domain rules.
+
+Every public procedure uses the common RPC envelope, typed error codes, request
+IDs, explicit API version, input/output validation, and cancellation signal.
 
 ---
 
@@ -66,7 +78,12 @@ Responsibilities:
 
 * `app` — bootstrap, server composition, RPC registration, env wiring
 * `modules` — business capabilities
-* `shared` — backend infrastructure and narrow cross-cutting utilities
+* `shared` — application-local cross-cutting code only when no foundation owner exists
+
+Reusable protocol/runtime code belongs in `@product-foundation/rpc*` packages.
+Reusable backend ports and PostgreSQL adapters belong in
+`@product-foundation/backend-core` and `backend-postgres`. Do not recreate them
+inside the app.
 
 Do not scatter a single use case across unrelated top-level folders.
 
@@ -107,7 +124,7 @@ Meaning:
 * application coordinates use cases
 * domain owns business meaning
 
-Domain code must not know about Hono, tRPC, request objects, response objects, headers, or framework context.
+Domain code must not know about NestJS, Fastify, decorators, DI tokens, request objects, response objects, headers, or framework context.
 
 ---
 
@@ -117,7 +134,7 @@ Each business module should prefer a structure like:
 
 ```txt
 modules/
-  hello/
+  capability/
     contract/
     domain/
     application/
@@ -158,38 +175,42 @@ Application code may coordinate repositories, services, and domain functions, bu
 
 Contains:
 
-* Hono route adapters
-* tRPC procedures
-* input parsing at the transport edge
+* NestJS controllers
+* one thin Nest module composition boundary per business capability
+* explicit DI tokens/providers that connect pure handlers and use cases
+* Fastify request/reply adaptation when platform behavior is required
 * response mapping when required
 
-Transport code must stay thin.
+Transport code must stay thin. Do not add an `@Injectable()` service that merely
+renames an application use case.
 
 If transport contains business decisions, move that logic inward.
 
 ---
 
-## Hono RPC and tRPC Rule
+## NestJS and Fastify Rule
 
-Hono RPC and tRPC are delivery mechanisms, not the application architecture.
+NestJS is the backend application framework, not the domain architecture.
 
 Allowed framework knowledge:
 
-* `src/app/rpc`
+* `src/app`
 * `src/modules/*/transport`
 
 Forbidden framework coupling:
 
-* domain functions receiving Hono context or tRPC caller state
-* use cases returning framework-specific response objects
-* repositories depending on transport context
+* domain/application functions receiving Nest execution context
+* use cases returning Nest/Fastify response objects
+* repositories depending on request-scoped transport state
+* decorators or DI tokens in domain code
+* importing one module's controller/provider internals from another module
 
 Preferred pattern:
 
 ```txt
-RPC input
+Nest controller
  ↓
-transport validation and adapter
+framework-neutral RPC executor
  ↓
 application use case
  ↓
@@ -197,10 +218,15 @@ domain logic
  ↓
 plain typed result
  ↓
-transport response mapping
+common RPC envelope
 ```
 
-If Hono or tRPC is replaced, only transport and composition code should need substantial changes.
+Global exception filters normalize parser/framework failures. Expected business
+failures use application errors and are mapped by the RPC executor. Nest modules
+compose dependencies; they do not own business behavior.
+
+If Fastify or NestJS is replaced, only transport and composition code should
+need substantial changes.
 
 ---
 
@@ -240,8 +266,9 @@ If the frontend needs the type, schema, or shape, it belongs in `packages/contra
 Examples:
 
 * env parsing
-* logger wiring
-* RPC app creation
+* Nest application bootstrap
+* root module composition
+* global filters, guards, and interceptors
 * module registration
 * server startup
 
@@ -257,11 +284,11 @@ Keep bootstrapping separate from business behavior.
 
 ## Shared Layer Rule
 
-`src/shared` exists for backend-wide infrastructure, not for dumping random helpers.
+`src/shared` exists for product-local backend code, not for dumping reusable
+foundation helpers.
 
 Allowed:
 
-* infrastructure adapters
 * common error primitives
 * time and id helpers
 * narrow utility functions
@@ -280,7 +307,7 @@ If a helper clearly belongs to one module, keep it in that module.
 
 ## Repository Rule
 
-If persistence is introduced later, repositories must sit behind application boundaries.
+Persistence sits behind application ports and module-owned repositories.
 
 Rules:
 
@@ -288,6 +315,12 @@ Rules:
 * use cases call repositories
 * domain code does not perform I/O
 * transport code does not query storage directly
+* `pg` imports remain inside `@product-foundation/backend-postgres`
+* raw `SqlExecutor` is for infrastructure/system operations; tenant-owned
+  repositories run through `TenantTransactionRunner`
+* every tenant-owned repository method accepts an explicit `WorkspaceScope`
+* state changes and their outbox messages share one transaction
+* applied SQL migrations are immutable and forward-only
 
 Do not create repository layers before there is real persistence complexity.
 
@@ -315,8 +348,9 @@ Validation must happen before business logic relies on the data.
 
 Prefer explicit schemas over ad hoc checks.
 
-If Hono or tRPC provides validation helpers, use them only at the edge.
-Do not spread framework-specific validation behavior through domain code.
+Nest pipes may validate transport-only values, but public RPC input/output must
+still use schemas from `packages/contracts`. Do not spread framework-specific
+validation behavior through domain code.
 
 ---
 
@@ -408,7 +442,7 @@ When generating backend code:
 
 Always:
 
-* keep Hono or tRPC code at the edge
+* keep NestJS and Fastify code inside app composition or module transport
 * place business rules in domain or application layers
 * prefer explicit module ownership
 * reuse `packages/contracts` for shared API boundaries
@@ -428,13 +462,22 @@ If unsure, keep the code closer to the owning module and choose the simpler expl
 
 ## Decision Log Rule
 
-When the final backend stack is confirmed, update this file with:
+Confirmed decisions:
 
-* chosen RPC framework
-* validation library
-* persistence strategy
-* auth model
-* deployment shape
-* background job strategy
+* application framework — NestJS with the official Fastify adapter
+* RPC edge — repository-owned contract-first executor and thin Nest controllers
+* validation — Zod at every untrusted boundary
+* deployment — modular monolith first
+* persistence — PostgreSQL through `@product-foundation/backend-postgres`
+* migrations — immutable versioned SQL with checksums and an advisory lock
+* tenancy — explicit workspace scope and transaction-local PostgreSQL context
+* async consistency — transactional outbox and a separate worker entrypoint
+* repeated mutations — workspace-scoped idempotency ledger
+
+Open decisions that require a dedicated ADR before implementation:
+
+* session/token implementation and external identity provider
+* external queue provider, only if PostgreSQL outbox polling is insufficient
+* product-specific storage, search, realtime and external integrations
 
 Major backend decisions must also be recorded in `docs/adr`.

@@ -1,0 +1,17 @@
+import { Controller, Get, Header, Inject } from "@nestjs/common";
+import { MetricsService } from "./metrics.service.js";
+
+@Controller()
+export class MetricsController {
+  constructor(
+    @Inject(MetricsService)
+    private readonly metrics: MetricsService
+  ) {}
+
+  @Get("/metrics")
+  @Header("Cache-Control", "no-store")
+  @Header("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+  metricsReport() {
+    return this.metrics.render();
+  }
+}

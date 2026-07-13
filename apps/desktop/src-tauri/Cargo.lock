@@ -1118,7 +1118,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gtd-planner-desktop"
+name = "product-foundation-starter-desktop"
 version = "0.0.0"
 dependencies = [
  "tauri",

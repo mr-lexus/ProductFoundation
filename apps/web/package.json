@@ -1,5 +1,5 @@
 {
-  "name": "@gtd-planner/web",
+  "name": "@app/web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,13 +10,14 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@gtd-planner/contracts": "workspace:*",
-    "@gtd-planner/frontend-app": "workspace:*",
+    "@app/frontend-app": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "sass": "^1.89.0",
     "typescript": "^5.8.0",

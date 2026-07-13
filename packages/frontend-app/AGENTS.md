@@ -1,4 +1,4 @@
-# AI Development Rules — GTD Planner Frontend
+# AI Development Rules — Shared Frontend Application
 
 ## Purpose
 
@@ -10,7 +10,7 @@ Scope:
 packages/frontend-app
 ```
 
-This package contains the product UI and GTD behavior shared by:
+This package contains product UI and behavior shared by:
 
 * web
 * Capacitor iOS and Android shells
@@ -146,11 +146,10 @@ Contains:
 Examples:
 
 ```txt
-capture-inbox-item
-clarify-task
-plan-next-action
-complete-task
-run-weekly-review
+create-document
+invite-member
+update-profile
+manage-subscription
 ```
 
 Features may use entities and shared.
@@ -163,11 +162,9 @@ Examples:
 
 ```txt
 user
-task
-project
-inbox-item
-context
-area
+workspace
+document
+subscription
 ```
 
 Entities define business meaning.
@@ -359,7 +356,7 @@ Simple DTOs may be used directly.
 
 Avoid pointless mappers.
 
-GTD semantics such as inbox processing, next-action rules, recurring task behavior, and review status must not be hardcoded in components.
+Product semantics and workflow rules must not be hardcoded in components.
 
 If a contract is shared with the backend, import it from `packages/contracts` rather than duplicating it locally.
 
@@ -421,7 +418,7 @@ BEM must improve readability, not turn into ceremony.
 
 ## List and Table Architecture
 
-All task and project collections should share common behavior.
+Collections with the same interaction model should share common behavior.
 
 Supported features:
 
@@ -431,7 +428,7 @@ Supported features:
 * bulk actions
 * row selection
 * column visibility
-* grouping when it reflects GTD concepts such as project, context, or status
+* grouping when it reflects product concepts such as owner, category, or status
 
 All collection logic must be reusable via hooks or feature modules.
 No table-specific or list-specific logic inside pages.
@@ -518,7 +515,7 @@ Domain logic belongs to entities and features, not hooks.
 If logic answers a business question, place it in `entities` or `features` and let hooks consume it.
 
 Collection and table behavior may live in hooks only when it is UI behavior.
-GTD semantics and workflow rules belong to `features` or `entities`.
+Product semantics and workflow rules belong to `features` or `entities`.
 
 ---
 

@@ -1,25 +1,35 @@
 {
-  "name": "gtd-planner",
+  "name": "product-foundation-starter",
   "private": true,
-  "packageManager": "pnpm@10.0.0",
+  "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
-    "workspace:status": "echo GTD Planner demo workspace is ready",
-    "dev:api": "pnpm --filter @gtd-planner/api dev",
-    "dev:web": "pnpm --filter @gtd-planner/web dev",
+    "workspace:status": "echo Product Foundation Starter workspace is ready",
+    "dev:api": "pnpm --filter @app/api dev",
+    "dev:web": "pnpm --filter @app/web dev",
     "dev:demo": "concurrently -k -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
-    "build:web": "pnpm --filter @gtd-planner/web build",
-    "preview:web": "pnpm --filter @gtd-planner/web preview",
-    "tauri:dev": "pnpm --filter @gtd-planner/desktop dev",
-    "tauri:build": "pnpm --filter @gtd-planner/desktop build",
-    "cap:add:android": "pnpm --filter @gtd-planner/mobile cap:add:android",
-    "cap:add:ios": "pnpm --filter @gtd-planner/mobile cap:add:ios",
-    "cap:sync": "pnpm --filter @gtd-planner/mobile cap:sync",
-    "cap:open:android": "pnpm --filter @gtd-planner/mobile cap:open:android",
-    "cap:open:ios": "pnpm --filter @gtd-planner/mobile cap:open:ios",
-    "check": "pnpm --filter @gtd-planner/contracts check && pnpm --filter @gtd-planner/frontend-app check && pnpm --filter @gtd-planner/web check && pnpm --filter @gtd-planner/api check"
+    "db:migrate": "pnpm --filter @app/api migrate",
+    "db:migrate:dev": "pnpm --filter @app/api migrate:dev",
+    "build:foundation": "pnpm --filter @product-foundation/rpc build && pnpm --filter @product-foundation/rpc-client build && pnpm --filter @product-foundation/rpc-server build && pnpm --filter @product-foundation/backend-core build && pnpm --filter @product-foundation/backend-postgres build",
+    "build:contracts": "pnpm build:foundation && pnpm --filter @app/contracts build",
+    "build:api": "pnpm --filter @app/api build",
+    "build:web": "pnpm --filter @app/web build",
+    "build": "pnpm build:contracts && pnpm build:api && pnpm build:web",
+    "smoke:api": "node scripts/smoke-production-api.mjs",
+    "preview:web": "pnpm --filter @app/web preview",
+    "tauri:dev": "pnpm --filter @app/desktop dev",
+    "tauri:build": "pnpm --filter @app/desktop build",
+    "cap:add:android": "pnpm --filter @app/mobile cap:add:android",
+    "cap:add:ios": "pnpm --filter @app/mobile cap:add:ios",
+    "cap:sync": "pnpm --filter @app/mobile cap:sync",
+    "cap:open:android": "pnpm --filter @app/mobile cap:open:android",
+    "cap:open:ios": "pnpm --filter @app/mobile cap:open:ios",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:types": "pnpm build:contracts && pnpm --filter @product-foundation/rpc check && pnpm --filter @product-foundation/rpc-client check && pnpm --filter @product-foundation/rpc-server check && pnpm --filter @product-foundation/backend-core check && pnpm --filter @product-foundation/backend-postgres check && pnpm --filter @app/contracts check && pnpm --filter @app/frontend-app check && pnpm --filter @app/web check && pnpm --filter @app/api check",
+    "test": "pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/api test",
+    "check": "pnpm check:architecture && pnpm check:types && pnpm test"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

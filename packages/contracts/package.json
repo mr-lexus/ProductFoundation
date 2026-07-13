@@ -1,15 +1,24 @@
 {
-  "name": "@gtd-planner/contracts",
+  "name": "@app/contracts",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
+    "build": "pnpm --filter @product-foundation/rpc build && tsc -p tsconfig.build.json",
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@product-foundation/rpc": "workspace:*",
     "zod": "^3.24.0"
   },
   "devDependencies": {

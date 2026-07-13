@@ -1,16 +1,23 @@
-import { serve } from "@hono/node-server";
-import { createHttpApp } from "./app/http/create-http-app";
+import { createNestApplication } from "./app/create-nest-application.js";
+import { loadApiConfig } from "./app/config/load-api-config.js";
 
-const DEFAULT_PORT = 3001;
-const port = Number(process.env.PORT ?? DEFAULT_PORT);
-const app = createHttpApp();
+async function bootstrap() {
+  const config = loadApiConfig();
+  const application = await createNestApplication(config);
 
-serve(
-  {
-    fetch: app.fetch,
-    port
-  },
-  (info) => {
-    console.log(`GTD Planner API listening on http://127.0.0.1:${info.port}`);
-  }
-);
+  application.enableShutdownHooks();
+  await application.listen(config.port, "0.0.0.0");
+
+  application
+    .getHttpAdapter()
+    .getInstance()
+    .log.info({ event: "api_started", port: config.port });
+}
+
+bootstrap().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : "Unknown error";
+  process.stderr.write(
+    `${JSON.stringify({ event: "api_start_failed", level: "fatal", message })}\n`
+  );
+  process.exitCode = 1;
+});

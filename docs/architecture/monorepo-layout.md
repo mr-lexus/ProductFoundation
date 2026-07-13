@@ -1,117 +1,47 @@
-# Monorepo Layout
+# Monorepo layout
 
-## Target Structure
-
-```txt
+```text
 apps/
-  web/                      # browser runtime shell
-  mobile/                   # Capacitor runtime shell for iOS and Android
-  desktop/                  # Tauri runtime shell
-  api/                      # backend application
-    AGENTS.md
+  api/                    NestJS composition, product backend modules, worker
+  web/                    browser bootstrap
+  mobile/                 Capacitor bootstrap and native adapters
+  desktop/                Tauri bootstrap and desktop adapters
 
 packages/
-  frontend-app/             # shared React application code
-    AGENTS.md
-    src/
-      app/
-      pages/
-      widgets/
-      features/
-      entities/
-      shared/
-  contracts/                # shared API schemas and DTOs
-  config/                   # shared tooling presets
+  contracts/              product RPC schemas and DTOs
+  frontend-app/           shared React product application
+  rpc/                    framework-neutral protocol
+  rpc-client/             framework-neutral client
+  rpc-server/             framework-neutral executor
+  backend-core/           backend ports and durable orchestration
+  backend-postgres/       PostgreSQL adapters and foundation migrations
+  config/                 shared tooling configuration
 
 docs/
-  adr/
-  architecture/
+  adr/                    lasting decisions and their trade-offs
+  architecture/           current architecture and operations
 ```
 
-## Architectural Intent
+## Ownership
 
-The product is authored once as a shared frontend application and exposed through thin runtime shells:
+`apps/*` are deploy/runtime boundaries. They may import packages. Packages must
+not import concrete app shells.
 
-* `apps/web`
-* `apps/mobile`
-* `apps/desktop`
+`@product-foundation/*` is product-neutral. `@app/*` is the product layer that
+the team extends after copying the starter.
 
-This avoids keeping three separate copies of the same UI and business behavior.
+`packages/contracts` owns only boundary schemas/types. `packages/frontend-app`
+owns cross-platform product UI. `apps/api/src/modules` owns backend capabilities.
 
-## Rule Resolution
+## Thin shell rule
 
-Agents and developers should read rules in this order:
+Do not implement the same feature separately in web, mobile and desktop. Put it
+in `frontend-app`; inject platform differences through explicit adapters.
 
-1. nearest local `AGENTS.md`
-2. parent `AGENTS.md`
-3. root `AGENTS.md`
+Shell-local code is appropriate for push notifications, filesystem, native
+share, window lifecycle and platform bootstrap.
 
-Examples:
+## Public API rule
 
-* work inside `packages/frontend-app/src/features/...` -> use `packages/frontend-app/AGENTS.md` plus root `AGENTS.md`
-* work inside `apps/api/...` -> use `apps/api/AGENTS.md` plus root `AGENTS.md`
-
-## Shell Responsibilities
-
-### apps/web
-
-Owns:
-
-* browser entry point
-* web-specific environment wiring
-* static hosting integration
-
-### apps/mobile
-
-Owns:
-
-* Capacitor config
-* native plugin wiring
-* mobile packaging
-
-If two mobile variants are needed later, add them as explicit subfolders or dedicated apps only when the variants diverge materially.
-
-### apps/desktop
-
-Owns:
-
-* Tauri config
-* desktop lifecycle wiring
-* native desktop integration
-
-### apps/api
-
-Owns:
-
-* server bootstrap
-* backend modules
-* persistence integration
-* server-side business execution
-
-## Shared Package Responsibilities
-
-### packages/frontend-app
-
-Owns:
-
-* product UI
-* GTD workflows
-* FSD slices
-* frontend data fetching and mapping
-
-### packages/contracts
-
-Owns:
-
-* shared request and response schemas
-* DTOs
-* shared enums
-* boundary validation artifacts
-
-### packages/config
-
-Owns:
-
-* shared lint config
-* shared TypeScript config
-* shared build presets
+Cross-package imports use package exports. Cross-slice frontend imports use the
+slice `index.ts`. Do not import another package's or slice's internal `src` path.

@@ -1,0 +1,30 @@
+{
+  "name": "@product-foundation/backend-postgres",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist", "migrations"],
+  "scripts": {
+    "build:dependencies": "pnpm --filter @product-foundation/backend-core build",
+    "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
+    "check": "pnpm build:dependencies && tsc --noEmit",
+    "test": "pnpm build:dependencies && tsx --test src/postgres.integration.test.ts"
+  },
+  "dependencies": {
+    "@product-foundation/backend-core": "workspace:*",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "name": "@gtd-planner/desktop",
+  "name": "@app/desktop",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -8,8 +8,7 @@
     "build": "tauri build"
   },
   "dependencies": {
-    "@gtd-planner/contracts": "workspace:*",
-    "@gtd-planner/frontend-app": "workspace:*"
+    "@app/frontend-app": "workspace:*"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

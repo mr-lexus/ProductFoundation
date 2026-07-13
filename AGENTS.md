@@ -1,8 +1,8 @@
-# AI Development Rules — GTD Planner Monorepo
+# AI Development Rules — Product Foundation Monorepo
 
 ## Purpose
 
-This file defines repository-wide rules for the GTD Planner monorepo.
+This file defines repository-wide rules for a reusable, product-neutral starter.
 
 Use this file together with the nearest more specific `AGENTS.md`.
 
@@ -28,6 +28,11 @@ apps/
   api/
 
 packages/
+  rpc/
+  rpc-client/
+  rpc-server/
+  backend-core/
+  backend-postgres/
   frontend-app/
   contracts/
   config/
@@ -43,13 +48,28 @@ Responsibilities:
 * `apps/mobile` — Capacitor runtime shell for iOS and Android
 * `apps/desktop` — Tauri runtime shell
 * `apps/api` — backend application
+* `packages/rpc` — framework-neutral RPC protocol and schemas
+* `packages/rpc-client` — framework-neutral browser/native RPC client
+* `packages/rpc-server` — framework-neutral RPC execution runtime
+* `packages/backend-core` — reusable application ports and durable orchestration
+* `packages/backend-postgres` — reusable PostgreSQL adapters and foundation migrations
 * `packages/frontend-app` — shared frontend application code
-* `packages/contracts` — shared API contracts and schemas
+* `packages/contracts` — application contracts and schemas
 * `packages/config` — shared tooling presets
 
 ---
 
 ## Ownership Model
+
+Foundation packages and application packages have different ownership.
+
+Foundation packages use the `@product-foundation/*` namespace. They must remain
+product-neutral and must not import `@app/*`, concrete apps, application
+contracts, product UI, or product business vocabulary.
+
+The `@app/*` namespace is the replaceable application layer of the starter.
+After copying the repository, a product adds its contracts, modules,
+configuration and UI there instead of adding domain code to foundation packages.
 
 Platform shells must stay thin.
 
@@ -57,7 +77,7 @@ Business and product behavior should live in shared packages, not in runtime wra
 
 Prefer:
 
-* `packages/frontend-app` for UI flows and GTD behavior
+* `packages/frontend-app` for UI flows and product behavior
 * `packages/contracts` for DTOs, schemas, and shared API types
 * `apps/*` for platform bootstrap, runtime integration, and environment wiring
 
@@ -105,15 +125,17 @@ Do not mix:
 * UI abstractions
 * server orchestration
 
-Backend-specific decisions belong under `apps/api/AGENTS.md`.
+Reusable backend ports belong in `packages/backend-core`; PostgreSQL adapters
+and foundation migrations belong in `packages/backend-postgres`. NestJS runtime
+composition and product modules belong under the product API app.
 
-Until backend implementation is chosen, keep backend rules conservative and explicit.
+Backend-specific composition decisions belong under `apps/api/AGENTS.md`.
 
 ---
 
 ## Contracts Rule
 
-Shared contracts belong in:
+Product contracts belong in:
 
 ```txt
 packages/contracts
@@ -135,6 +157,9 @@ Forbidden content:
 
 Contracts are boundary artifacts, not a dumping ground for application logic.
 
+Protocol-level envelopes, errors and procedure definitions belong in
+`packages/rpc`; product procedures must not be added there.
+
 ---
 
 ## Dependency Rule
@@ -150,6 +175,10 @@ Examples:
 * `apps/desktop` may depend on `packages/frontend-app`
 * `packages/frontend-app` must not depend on `apps/web`
 * `packages/contracts` must remain shell-agnostic
+* product packages may depend on `@product-foundation/*`
+* foundation packages must never depend on product packages
+* `backend-postgres` may depend on `backend-core`; the reverse is forbidden
+* `rpc-client` and `rpc-server` may depend on `rpc`; the reverse is forbidden
 
 Avoid circular dependencies across apps and packages.
 
@@ -201,6 +230,7 @@ When working in this repository:
 Always:
 
 * read the nearest `AGENTS.md` before making changes in a subtree
+* use `context7` when you need up-to-date library, framework, or tool documentation
 * prefer extending the shared frontend package over cloning code into shells
 * keep cross-boundary ownership obvious
 * document exceptions when the default structure is bent

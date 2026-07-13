@@ -1,0 +1,70 @@
+name: product-foundation-starter
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_PASSWORD: local_only_password
+      POSTGRES_USER: app
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  migrate:
+    build:
+      context: .
+    command: ["node", "--enable-source-maps", "dist/app/database/migrate.js"]
+    depends_on:
+      database:
+        condition: service_healthy
+    environment: &runtime-environment
+      CORS_ORIGINS: http://localhost:1420,http://127.0.0.1:1420
+      DATABASE_URL: postgresql://app:local_only_password@database:5432/app
+      LOG_LEVEL: info
+      NODE_ENV: production
+
+  api:
+    build:
+      context: .
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment: *runtime-environment
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health/ready').then(r=>{if(!r.ok)process.exit(1)})"
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    ports:
+      - "${API_PORT:-3001}:3001"
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+    command: ["node", "--enable-source-maps", "dist/worker.js"]
+    depends_on:
+      database:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment: *runtime-environment
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -1,4 +1,4 @@
-import { HelloWorldPage } from "../pages/hello-world/ui/hello-world-page";
+import { FoundationStatusPage } from "../pages/foundation-status";
 import type { FrontendPlatformConfig } from "../shared/config/platform";
 
 interface FrontendAppShellProps {
@@ -12,12 +12,12 @@ export function FrontendAppShell({ platform }: FrontendAppShellProps) {
         <p className="frontend-app__eyebrow">Shared frontend package</p>
         <h1 className="frontend-app__title">{platform.title}</h1>
         <p className="frontend-app__subtitle">
-          Frontend shell calls the Hono backend over HTTP and renders the shared
-          UI from <code>packages/frontend-app</code>.
+          This neutral smoke screen verifies the shared frontend, versioned RPC,
+          NestJS API and runtime shell before product code is added.
         </p>
       </header>
 
-      <HelloWorldPage platform={platform} />
+      <FoundationStatusPage platform={platform} />
     </main>
   );
 }

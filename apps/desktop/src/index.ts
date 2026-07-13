@@ -1,6 +1,6 @@
-import type { FrontendPlatformConfig } from "@gtd-planner/frontend-app";
+import type { FrontendPlatformConfig } from "@app/frontend-app";
 
 export const desktopPlatform: Omit<FrontendPlatformConfig, "apiBaseUrl"> = {
   platform: "desktop",
-  title: "GTD Planner Desktop Demo"
+  title: "Product Starter — Desktop"
 };

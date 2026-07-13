@@ -1,0 +1,1 @@
+export const SYSTEM_PING_RPC_HANDLER = Symbol("SYSTEM_PING_RPC_HANDLER");

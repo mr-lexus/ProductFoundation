@@ -1,2 +1,2 @@
-export * from "./rpc";
-export * from "./hello-world";
+export * from "@product-foundation/rpc";
+export * from "./system-ping.js";

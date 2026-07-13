@@ -1,4 +1,4 @@
-import type { ClientPlatform } from "@gtd-planner/contracts";
+import type { ClientPlatform } from "@app/contracts";
 
 export interface FrontendPlatformConfig {
   apiBaseUrl: string;

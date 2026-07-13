@@ -1,5 +1,5 @@
 import ReactDOM from "react-dom/client";
-import { createFrontendApp } from "@gtd-planner/frontend-app";
+import { createFrontendApp } from "@app/frontend-app";
 import { createWebPlatformConfig } from "./index";
 
 const rootElement = document.getElementById("root");

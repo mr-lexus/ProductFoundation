@@ -1,0 +1,26 @@
+{
+  "name": "@product-foundation/rpc-server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build:dependencies": "pnpm --filter @product-foundation/rpc build",
+    "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
+    "check": "pnpm build:dependencies && tsc --noEmit"
+  },
+  "dependencies": {
+    "@product-foundation/rpc": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}

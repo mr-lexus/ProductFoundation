@@ -3,8 +3,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
 const liveReloadUrl = process.env.CAP_SERVER_URL;
 
 const config: CapacitorConfig = {
-  appId: "com.gtdplanner.mobile",
-  appName: "GTD Planner Mobile",
+  appId: "com.example.product.mobile",
+  appName: "Product Starter",
   webDir: "../web/dist",
   ...(liveReloadUrl
     ? {

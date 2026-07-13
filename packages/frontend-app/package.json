@@ -1,5 +1,5 @@
 {
-  "name": "@gtd-planner/frontend-app",
+  "name": "@app/frontend-app",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,12 +10,19 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@gtd-planner/contracts": "workspace:*",
-    "@tanstack/react-query": "^5.64.0",
+    "@app/contracts": "workspace:*",
+    "@product-foundation/rpc-client": "workspace:*",
+    "@tanstack/react-query": "^5.64.0"
+  },
+  "peerDependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "typescript": "^5.8.0"
   }
 }
