@@ -9,7 +9,8 @@
    separate stable namespace.
 4. Deploy API replicas and verify `/health/live`, `/health/ready`, RPC errors and
    `/metrics`.
-5. Deploy worker replicas and verify outbox lag/retries/dead letters.
+5. Deploy worker replicas and verify `:9464/health/ready` and `:9464/metrics`.
+   Inspect pending count, oldest age, failures and dead letters.
 6. Run a production smoke request with no sensitive payload.
 
 Migrations must be backward compatible with both old and new application
@@ -49,8 +50,9 @@ data is disposable and is not a backup strategy.
   alone must remain healthy.
 - outbox lag rising: stop adding worker replicas blindly; inspect handler error
   rate, locks and downstream health.
-- dead letters: preserve rows, fix the idempotent handler, then replay through a
-  reviewed tool. Never edit payloads in place.
+- dead letters: preserve rows within the configured retention window, fix the
+  idempotent handler, then replay through a reviewed product tool. Never edit
+  payloads in place.
 - suspected tenant leak: disable affected procedure, preserve audit/log evidence,
   rotate exposed credentials and start the security incident process.
 
@@ -62,7 +64,7 @@ Before real traffic, use these as review targets rather than contractual SLOs:
 - p95 RPC latency: under 300 ms excluding intentionally long operations;
 - server error rate: below 0.5%;
 - outbox oldest pending age: below 60 seconds;
-- zero unresolved tenant-isolation failures.
+- zero unresolved tenant-isolation failures when `DATA_SCOPE_MODE=tenant`.
 
 Alerts must link here or to a more specific runbook and identify an owner.
 
@@ -70,5 +72,6 @@ Alerts must link here or to a more specific runbook and identify an owner.
 
 `pnpm-workspace.yaml` is deny-by-default for dependency build scripts. `esbuild`
 is explicitly allowed because the checked-in toolchain requires its platform
-binary. Optional `@parcel/watcher` scripts are explicitly denied. Any new entry
-requires a dependency review; never approve a build script only to make CI green.
+binary. Optional `@parcel/watcher` scripts are explicitly denied. Workspace
+packages are injected so modern `pnpm deploy` produces a portable API image.
+Any new build permission requires dependency review.

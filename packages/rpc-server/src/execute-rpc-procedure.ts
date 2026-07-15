@@ -4,16 +4,13 @@ import type {
   RpcSuccessResponse
 } from "@product-foundation/rpc";
 import { RpcApplicationError } from "./rpc-application-error.js";
-import type {
-  RpcActor,
-  RpcHandler
-} from "./rpc-handler.js";
+import type { RpcActor, RpcHandler, RpcHandlerInvoker } from "./rpc-handler.js";
 import {
   createRpcErrorResponse,
   isJsonContentType,
   isValidIdempotencyKey,
-  resolveRequestId,
-  type RpcHttpStatus
+  type RpcHttpStatus,
+  resolveRequestId
 } from "./rpc-protocol.js";
 
 interface ExecuteRpcProcedureOptions {
@@ -22,10 +19,8 @@ interface ExecuteRpcProcedureOptions {
   readonly contentType?: string;
   readonly createRequestId?: () => string;
   readonly idempotencyKey?: string;
-  readonly logError: (
-    error: unknown,
-    context: { procedureId: string; requestId: string }
-  ) => void;
+  readonly handlerInvoker?: RpcHandlerInvoker;
+  readonly logError: (error: unknown, context: { procedureId: string; requestId: string }) => void;
   readonly now?: () => Date;
   readonly requestId?: string;
   readonly signal: AbortSignal;
@@ -43,10 +38,7 @@ export async function executeRpcProcedure<TInput, TOutput>(
   options: ExecuteRpcProcedureOptions
 ): Promise<RpcExecutionResult<TOutput>> {
   const now = options.now ?? (() => new Date());
-  const requestId = resolveRequestId(
-    options.requestId,
-    options.createRequestId
-  );
+  const requestId = resolveRequestId(options.requestId, options.createRequestId);
   const receivedAt = now();
 
   if (!isJsonContentType(options.contentType)) {
@@ -75,6 +67,35 @@ export async function executeRpcProcedure<TInput, TOutput>(
     };
   }
 
+  if (contract.kind === "mutation" && options.idempotencyKey === undefined) {
+    return {
+      body: createRpcErrorResponse(
+        requestId,
+        "BAD_REQUEST",
+        "X-Idempotency-Key is required for this mutation.",
+        false
+      ),
+      requestId,
+      status: 400
+    };
+  }
+  if (contract.kind === "mutation" && options.handlerInvoker === undefined) {
+    options.logError(new Error(`RPC mutation ${contract.id} has no durable handler invoker.`), {
+      procedureId: contract.id,
+      requestId
+    });
+    return {
+      body: createRpcErrorResponse(
+        requestId,
+        "INTERNAL_ERROR",
+        "The server could not complete the RPC request.",
+        false
+      ),
+      requestId,
+      status: 500
+    };
+  }
+
   const parsedInput = contract.inputSchema.safeParse(options.body);
   if (!parsedInput.success) {
     return {
@@ -95,19 +116,26 @@ export async function executeRpcProcedure<TInput, TOutput>(
   }
 
   try {
-    const output = await handler(parsedInput.data, {
+    const context = {
       actor: options.actor ?? null,
       idempotencyKey: options.idempotencyKey ?? null,
       receivedAt,
       requestId,
       signal: options.signal
-    });
+    };
+    const output =
+      options.handlerInvoker === undefined
+        ? await handler(parsedInput.data, context)
+        : await options.handlerInvoker.invoke({
+            context,
+            handler,
+            input: parsedInput.data,
+            procedureId: contract.id
+          });
     const parsedOutput = contract.outputSchema.safeParse(output);
 
     if (!parsedOutput.success) {
-      throw new Error(
-        `RPC procedure ${contract.id} returned an invalid output.`
-      );
+      throw new Error(`RPC procedure ${contract.id} returned an invalid output.`);
     }
 
     return {

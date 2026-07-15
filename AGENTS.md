@@ -131,6 +131,15 @@ composition and product modules belong under the product API app.
 
 Backend-specific composition decisions belong under `apps/api/AGENTS.md`.
 
+Data scope is an explicit product choice:
+
+* `global` products use ordinary transaction ports
+* `tenant` products use `TenantTransactionRunner`; raw SQL ports are not exported
+* durable primitives use `OperationScope`, which is either `global` or `tenant`
+
+All RPC mutations use the durable idempotency invoker. Queries do not write to
+the idempotency ledger.
+
 ---
 
 ## Contracts Rule
@@ -171,8 +180,7 @@ Packages must not depend on concrete app shells unless a rule explicitly allows 
 Examples:
 
 * `apps/web` may depend on `packages/frontend-app`
-* `apps/mobile` may depend on `packages/frontend-app`
-* `apps/desktop` may depend on `packages/frontend-app`
+* mobile and desktop shells build the shared frontend with their platform context
 * `packages/frontend-app` must not depend on `apps/web`
 * `packages/contracts` must remain shell-agnostic
 * product packages may depend on `@product-foundation/*`
@@ -218,6 +226,7 @@ Minimum verification:
 * verify the resulting directory layout
 * run relevant diagnostics or tests when executable code changes
 * state clearly when a verification step could not be run
+* run `pnpm check:native` when native shell or platform configuration changes
 
 Do not claim repository structure is correct without checking the resulting paths.
 

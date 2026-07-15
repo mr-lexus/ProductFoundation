@@ -1,35 +1,35 @@
-# ADR 0006 — Tenant scope and durable execution primitives
+# ADR 0006 — Operation scope and durable execution primitives
 
-- Status: accepted
-- Date: 2026-07-12
+## Status
+
+Accepted.
 
 ## Context
 
-Multi-user product data must never cross workspace boundaries. Async
-effects must survive process failure, and retried mutations must not duplicate
-state changes.
+The starter must support both globally scoped products and multi-tenant products.
+It also needs safe retries and asynchronous side effects without requiring Redis
+or an external broker on day one.
 
 ## Decision
 
-- Tenant-owned repositories execute through `TenantTransactionRunner`.
-- The PostgreSQL adapter installs `app.workspace_id` with transaction-local
-  `set_config` before repository work begins.
-- Application authorization is deny-by-default and independent from NestJS.
-- Authentication is an application port; token/session choice remains a future
-  auth ADR because client requirements are not final.
-- Repeatable mutations use a workspace-scoped idempotency ledger with payload
-  hash, lease, replay and conflict states.
-- Domain change and outbox event are inserted with the same `SqlExecutor` in one
-  transaction.
-- The worker uses `FOR UPDATE SKIP LOCKED`, leases, bounded exponential backoff
-  and an explicit dead-letter state.
-- Event handlers are registered only in the worker composition root and must be
-  idempotent.
+- Durable operations use `OperationScope`: `{ kind: "global" }` or an explicit
+  `TenantScope`.
+- `DATA_SCOPE_MODE=global` exports ordinary SQL and transaction capabilities.
+- `DATA_SCOPE_MODE=tenant` exports only `TenantTransactionRunner` to product
+  modules. The PostgreSQL adapter installs transaction-local `app.tenant_id`.
+- Authorization remains deny-by-default and always receives the operation scope.
+- Every RPC mutation requires `X-Idempotency-Key` and a durable handler invoker.
+- Idempotency records contain request hashes, TTL, lease and owner token. Only
+  the current owner may complete or release a record.
+- State changes and outbox messages use one database transaction.
+- Outbox delivery uses `FOR UPDATE SKIP LOCKED`, lease ownership, bounded retry,
+  dead letters and idempotent handlers.
+- Processed and dead-letter messages have configurable retention. Worker metrics
+  expose pending count, oldest age, retries, dead letters and cleanup.
 
 ## Consequences
 
-Tenant context is explicit and testable without request-scoped framework magic.
-Committed events remain available after API failure. Delivery is at least once,
-so consumers still need their own deduplication or idempotent writes. Row-level
-security may be added per tenant table as defense in depth; it does not replace
-application authorization.
+Simple products do not create fake tenants. Tenant products make isolation
+visible in types and DI capabilities. PostgreSQL remains the initial durable
+coordination mechanism; an external queue may replace polling only after an ADR
+based on measured load.

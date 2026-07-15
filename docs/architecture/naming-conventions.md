@@ -12,7 +12,7 @@
 - environment variables: `UPPER_SNAKE_CASE`;
 - boolean names начинаются с `is`, `has`, `can` или `should`;
 - commands/use cases используют глагол: `createDocument`, `inviteMember`;
-- domain types используют существительное: `Document`, `WorkspaceScope`.
+- domain types используют существительное: `Document`, `TenantScope`.
 
 Не используйте `I`-prefix для interfaces, `Manager`, `Helper`, `Utils`, `Common`
 или `Service` без конкретного смысла. Имя должно объяснять ответственность.

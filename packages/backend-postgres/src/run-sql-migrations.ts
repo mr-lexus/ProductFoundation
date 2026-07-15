@@ -8,6 +8,7 @@ interface AppliedMigrationRow extends QueryResultRow {
 }
 
 export interface RunSqlMigrationsOptions {
+  readonly allowEmpty?: boolean;
   readonly connectionTimeoutMs: number;
   readonly directory: URL;
   readonly lockName?: string;
@@ -70,7 +71,7 @@ export async function runSqlMigrations(options: RunSqlMigrationsOptions) {
       .filter((name) => migrationFilePattern.test(name))
       .sort();
 
-    if (migrationNames.length === 0) {
+    if (migrationNames.length === 0 && options.allowEmpty !== true) {
       throw new Error("No SQL migration files were found.");
     }
 
@@ -85,9 +86,7 @@ export async function runSqlMigrations(options: RunSqlMigrationsOptions) {
 
       if (applied.rows[0] !== undefined) {
         if (applied.rows[0].checksum !== expectedChecksum) {
-          throw new Error(
-            `Applied migration ${namespace}/${name} has been modified.`
-          );
+          throw new Error(`Applied migration ${namespace}/${name} has been modified.`);
         }
         continue;
       }

@@ -1,59 +1,55 @@
 # Foundation implementation roadmap
 
-Этот roadmap относится только к технической болванке. Product roadmap, UI и
+Этот roadmap относится только к технической основе. Product roadmap, UI и
 design system создаются после копирования репозитория.
 
 ## Выполнено
 
-### Architecture boundaries
+### Boundaries и toolchain
 
-- modular monolith;
-- нейтральные `@product-foundation/*` и заменяемые `@app/*` packages;
+- modular monolith и thin platform shells;
+- нейтральные `@product-foundation/*` и заменяемые `@app/*`;
 - NestJS/Fastify только на composition/transport edge;
-- frontend FSD dependency direction;
-- автоматический architecture gate.
+- FSD frontend direction;
+- architecture gate для source imports, package manifests и dependency cycles;
+- Node.js 24, pnpm lockfile, Biome formatter/linter.
 
-### Contracts и runtime
+### Contracts и platforms
 
-- versioned contract-first RPC;
-- общий envelope, errors, request ID и cancellation;
-- Zod input/output validation;
-- native ESM production build и compiled smoke test.
+- versioned contract-first RPC и Zod runtime validation;
+- единый request ID, typed errors и cancellation;
+- durable invoker обязателен для каждой RPC mutation;
+- отдельный `web | mobile | desktop` build context общего frontend;
+- same-origin web API, обязательный native API URL и Tauri CSP.
 
 ### Data и reliability
 
 - PostgreSQL pool, transactions и readiness;
-- immutable namespaced SQL migrations с checksums/advisory lock;
-- explicit tenant scope и deny-by-default authorization boundary;
-- idempotency ledger, transactional outbox и отдельный worker;
-- retry, lease, dead-letter и graceful shutdown.
+- foundation + готовый product migration namespace/directory;
+- `global | tenant` operation scope без фиктивных tenants;
+- idempotency payload hash, lease ownership, replay и cleanup;
+- transactional outbox, ownership checks, retry/dead-letter и retention;
+- worker health, Prometheus metrics и graceful shutdown.
 
-### Security и operations
+### Delivery
 
-- validated environment contract;
-- Helmet, CORS, body/rate limits;
-- redacted JSON logs, health и Prometheus metrics;
-- Dockerfile, Compose, GitHub Actions, rollback/backup/incident runbooks.
+- redacted structured diagnostics, Helmet, CORS, body/rate limits;
+- package, API and PostgreSQL integration tests;
+- production web/API build and compiled smoke;
+- modern pnpm deploy, Docker Compose full-stack smoke and GitHub Actions;
+- отдельная CI-проверка Capacitor/Tauri shell.
 
-### Neutral starter
-
-- удалена привязка к конкретной предметной области;
-- product namespace заменён на `@app/*`;
-- оставлен только технический `system-ping` vertical slice;
-- добавлен человеческий `DEVELOPER_GUIDE.md`;
-- документация сокращена до актуального состояния.
-
-## Следующий этап выполняется в конкретном продукте
+## Следующий этап — конкретный продукт
 
 1. Переименовать placeholder identifiers.
-2. Выбрать identity/session model и permission vocabulary.
+2. Выбрать `DATA_SCOPE_MODE`, identity/session model и permissions.
 3. Создать первый product contract и backend capability.
-4. Добавить product migrations в отдельном namespace.
+4. Добавить первую миграцию в готовый `apps/api/migrations`.
 5. Создать design system и первый frontend vertical slice.
-6. Добавить product-specific tenant isolation и authorization tests.
-7. Настроить deployment secrets, ingress и telemetry exporter.
+6. Добавить product-specific authorization/isolation tests.
+7. Настроить secrets, ingress, backups и telemetry exporter.
 
 ## Не добавлять заранее
 
-Microservices, Redis, external queue/search, CRDT, event bus и distributed
-tracing backend добавляются только по измеренной необходимости и через ADR.
+Microservices, Redis, external queue/search, CRDT и distributed tracing backend
+добавляются только по измеренной необходимости и через ADR.

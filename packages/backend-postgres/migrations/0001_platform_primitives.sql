@@ -6,6 +6,7 @@ CREATE TABLE platform.idempotency_records (
   state text NOT NULL,
   response_status integer,
   response_body jsonb,
+  locked_by text,
   locked_until timestamp with time zone,
   expires_at timestamp with time zone NOT NULL,
   created_at timestamp with time zone NOT NULL DEFAULT now(),

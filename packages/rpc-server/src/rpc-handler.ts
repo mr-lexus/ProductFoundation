@@ -1,6 +1,6 @@
 export interface RpcActor {
-  readonly userId: string;
-  readonly workspaceId: string;
+  readonly kind: "service" | "user";
+  readonly subjectId: string;
 }
 
 export interface RpcRequestContext {
@@ -15,3 +15,12 @@ export type RpcHandler<TInput, TOutput> = (
   input: TInput,
   context: RpcRequestContext
 ) => Promise<TOutput> | TOutput;
+
+export interface RpcHandlerInvoker {
+  invoke<TInput, TOutput>(options: {
+    readonly context: RpcRequestContext;
+    readonly handler: RpcHandler<TInput, TOutput>;
+    readonly input: TInput;
+    readonly procedureId: string;
+  }): Promise<TOutput>;
+}

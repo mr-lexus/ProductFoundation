@@ -1,7 +1,4 @@
-import type {
-  SystemPingResponse,
-  RpcCallResult
-} from "@app/contracts";
+import type { RpcCallResult, SystemPingResponse } from "@app/contracts";
 
 export interface SystemStatusModel {
   apiBaseUrl: string;

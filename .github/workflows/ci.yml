@@ -38,9 +38,36 @@ jobs:
         with:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-          node-version: 22
+          node-version: 24
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
       - run: pnpm smoke:api
-      - run: docker build --tag product-foundation-starter-api:ci .
+      - run: pnpm smoke:compose
+
+  platform-shells:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    env:
+      CI: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+          node-version: 24
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @app/mobile check
+      - run: pnpm --filter @app/mobile build
+      - run: pnpm --filter @app/desktop build:ci

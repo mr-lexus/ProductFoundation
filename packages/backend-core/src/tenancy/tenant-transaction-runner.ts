@@ -1,16 +1,13 @@
-import type {
-  SqlExecutor,
-  TransactionOptions
-} from "../ports/database.js";
-import type { WorkspaceScope } from "../security/request-context.js";
+import type { SqlExecutor, TransactionOptions } from "../ports/database.js";
+import type { TenantScope } from "../security/request-context.js";
 
 export interface TenantSqlExecutor extends SqlExecutor {
-  readonly workspace: WorkspaceScope;
+  readonly scope: TenantScope;
 }
 
 export interface TenantTransactionRunner {
   run<T>(
-    workspace: WorkspaceScope,
+    scope: TenantScope,
     work: (transaction: TenantSqlExecutor) => Promise<T>,
     options?: TransactionOptions
   ): Promise<T>;

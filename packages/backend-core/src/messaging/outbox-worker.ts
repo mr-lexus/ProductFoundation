@@ -1,8 +1,4 @@
-import type {
-  ClaimedOutboxMessage,
-  OutboxMessageHandler,
-  OutboxStore
-} from "./outbox.js";
+import type { ClaimedOutboxMessage, OutboxMessageHandler, OutboxStore } from "./outbox.js";
 
 export interface OutboxWorkerOptions {
   readonly batchSize: number;
@@ -13,9 +9,20 @@ export interface OutboxWorkerOptions {
 
 export type OutboxWorkerLog = (entry: Readonly<Record<string, unknown>>) => void;
 
-function errorMessage(error: unknown) {
-  const message = error instanceof Error ? error.message : "Unknown error";
-  return message.slice(0, 2_000);
+export interface OutboxWorkerObserver {
+  batchClaimed(count: number): void;
+  deliveryCompleted(eventType: string): void;
+  deliveryFailed(eventType: string, deadLetter: boolean): void;
+}
+
+const noOpObserver: OutboxWorkerObserver = {
+  batchClaimed() {},
+  deliveryCompleted() {},
+  deliveryFailed() {}
+};
+
+function errorName(error: unknown) {
+  return error instanceof Error ? error.name.slice(0, 200) : "UnknownError";
 }
 
 function retryDelay(attemptCount: number) {
@@ -28,7 +35,8 @@ export class OutboxWorker {
     private readonly store: OutboxStore,
     private readonly handlers: ReadonlyMap<string, OutboxMessageHandler>,
     private readonly options: OutboxWorkerOptions,
-    private readonly log: OutboxWorkerLog
+    private readonly log: OutboxWorkerLog,
+    private readonly observer: OutboxWorkerObserver = noOpObserver
   ) {}
 
   async runOnce(signal?: AbortSignal) {
@@ -37,6 +45,7 @@ export class OutboxWorker {
       leaseMs: this.options.leaseMs,
       workerId: this.options.workerId
     });
+    this.observer.batchClaimed(messages.length);
 
     for (const message of messages) {
       if (signal?.aborted === true) {
@@ -60,15 +69,17 @@ export class OutboxWorker {
         ...(signal === undefined ? {} : { signal })
       });
       await this.store.complete(message.id, this.options.workerId);
+      this.observer.deliveryCompleted(message.eventType);
     } catch (error) {
       const deadLetter = message.attemptCount >= this.options.maxAttempts;
       await this.store.fail({
         deadLetter,
-        error: errorMessage(error),
+        error: errorName(error),
         messageId: message.id,
         retryDelayMs: retryDelay(message.attemptCount),
         workerId: this.options.workerId
       });
+      this.observer.deliveryFailed(message.eventType, deadLetter);
       this.log({
         deadLetter,
         event: "outbox_delivery_failed",

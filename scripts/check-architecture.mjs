@@ -4,15 +4,18 @@ import process from "node:process";
 
 const workspaceRoot = process.cwd();
 const appsRoot = path.join(workspaceRoot, "apps");
-const frontendRoot = path.join(
-  workspaceRoot,
-  "packages",
-  "frontend-app",
-  "src"
-);
+const frontendRoot = path.join(workspaceRoot, "packages", "frontend-app", "src");
 const apiRoot = path.join(workspaceRoot, "apps", "api", "src");
 const packagesRoot = path.join(workspaceRoot, "packages");
 const sourceExtensions = new Set([".ts", ".tsx", ".mts", ".mjs"]);
+const foundationPackages = new Set([
+  "backend-core",
+  "backend-postgres",
+  "config",
+  "rpc",
+  "rpc-client",
+  "rpc-server"
+]);
 const ignoredDirectories = new Set([
   ".git",
   ".pnpm-store",
@@ -51,11 +54,13 @@ function addViolation(filePath, message) {
 
 function readImports(source) {
   const imports = [];
-  const importPattern =
-    /(?:import|export)\s+(?:type\s+)?(?:[^"';]*?\sfrom\s+)?["']([^"']+)["']/g;
-  let match;
+  const importPattern = /(?:import|export)\s+(?:type\s+)?(?:[^"';]*?\sfrom\s+)?["']([^"']+)["']/g;
+  for (const match of source.matchAll(importPattern)) {
+    imports.push(match[1]);
+  }
 
-  while ((match = importPattern.exec(source)) !== null) {
+  const dynamicImportPattern = /(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g;
+  for (const match of source.matchAll(dynamicImportPattern)) {
     imports.push(match[1]);
   }
 
@@ -72,10 +77,7 @@ function frontendSegments(filePath) {
 
 function checkFrontendImport(filePath, specifier) {
   if (/^@app\/(?:api|web|mobile|desktop)(?:\/|$)/.test(specifier)) {
-    addViolation(
-      filePath,
-      `shared frontend must not depend on runtime app "${specifier}"`
-    );
+    addViolation(filePath, `shared frontend must not depend on runtime app "${specifier}"`);
   }
 
   if (!specifier.startsWith(".")) {
@@ -96,23 +98,14 @@ function checkFrontendImport(filePath, specifier) {
   }
 
   if (targetRank > sourceRank) {
-    addViolation(
-      filePath,
-      `FSD dependency points upward from ${sourceLayer} to ${targetLayer}`
-    );
+    addViolation(filePath, `FSD dependency points upward from ${sourceLayer} to ${targetLayer}`);
   }
 
-  const publicApiLayers = new Set([
-    "entities",
-    "features",
-    "widgets",
-    "pages"
-  ]);
+  const publicApiLayers = new Set(["entities", "features", "widgets", "pages"]);
   if (publicApiLayers.has(targetLayer) && targetParts.length > 2) {
     const sourceSlice = sourceParts[1];
     const targetSlice = targetParts[1];
-    const staysInsideSlice =
-      sourceLayer === targetLayer && sourceSlice === targetSlice;
+    const staysInsideSlice = sourceLayer === targetLayer && sourceSlice === targetSlice;
 
     if (!staysInsideSlice) {
       addViolation(
@@ -131,9 +124,7 @@ function checkApiImport(filePath, specifier) {
   }
 
   const isNestTransportImport =
-    specifier.startsWith("@nestjs/") ||
-    specifier === "fastify" ||
-    specifier.startsWith("fastify/");
+    specifier.startsWith("@nestjs/") || specifier === "fastify" || specifier.startsWith("fastify/");
 
   if (isNestTransportImport) {
     const isAllowedEdge =
@@ -148,9 +139,7 @@ function checkApiImport(filePath, specifier) {
     }
   }
 
-  if (
-    specifier === "pg" || specifier.startsWith("pg/")
-  ) {
+  if (specifier === "pg" || specifier.startsWith("pg/")) {
     addViolation(
       filePath,
       `PostgreSQL driver import "${specifier}" belongs in @product-foundation/backend-postgres`
@@ -159,12 +148,10 @@ function checkApiImport(filePath, specifier) {
 
   if (
     specifier === "prom-client" &&
-    !normalizedFile.includes("/src/app/observability/")
+    !normalizedFile.includes("/src/app/observability/") &&
+    !normalizedFile.includes("/src/app/worker/")
   ) {
-    addViolation(
-      filePath,
-      "prom-client is restricted to the observability composition edge"
-    );
+    addViolation(filePath, "prom-client is restricted to the observability composition edge");
   }
 
   if (!specifier.startsWith(".")) {
@@ -181,10 +168,7 @@ function checkApiImport(filePath, specifier) {
     targetParts[0] === "shared" &&
     targetParts[1] === "infrastructure"
   ) {
-    addViolation(
-      filePath,
-      `application port depends on infrastructure through "${specifier}"`
-    );
+    addViolation(filePath, `application port depends on infrastructure through "${specifier}"`);
   }
   const layers = ["shared", "modules", "app"];
   const sourceRank = layers.indexOf(sourceParts[0]);
@@ -213,7 +197,7 @@ function checkApiImport(filePath, specifier) {
     return;
   }
 
-  const moduleLayers = ["domain", "application", "transport"];
+  const moduleLayers = ["domain", "application", "infrastructure", "transport"];
   const sourceModuleRank = moduleLayers.indexOf(sourceParts[2]);
   const targetModuleRank = moduleLayers.indexOf(targetParts[2]);
   if (sourceModuleRank !== -1 && targetModuleRank > sourceModuleRank) {
@@ -231,14 +215,6 @@ async function checkFile(filePath) {
 
   if (normalizedFile.startsWith("packages/")) {
     const packageName = normalizedFile.split("/")[1];
-    const foundationPackages = new Set([
-      "backend-core",
-      "backend-postgres",
-      "config",
-      "rpc",
-      "rpc-client",
-      "rpc-server"
-    ]);
 
     if (foundationPackages.has(packageName)) {
       for (const specifier of imports) {
@@ -246,6 +222,18 @@ async function checkFile(filePath) {
           addViolation(
             filePath,
             `foundation package must not depend on product package "${specifier}"`
+          );
+        }
+        if (
+          specifier.startsWith("@nestjs/") ||
+          specifier === "fastify" ||
+          specifier.startsWith("fastify/") ||
+          specifier === "react" ||
+          specifier === "react-dom"
+        ) {
+          addViolation(
+            filePath,
+            `foundation package must remain independent of app frameworks: "${specifier}"`
           );
         }
       }
@@ -278,13 +266,17 @@ async function checkFile(filePath) {
           `PostgreSQL driver is restricted to backend-postgres: "${specifier}"`
         );
       }
+      if (specifier.startsWith(".")) {
+        const target = resolveRelativeImport(filePath, specifier);
+        const packageRoot = path.join(packagesRoot, packageName);
+        if (!target.startsWith(`${packageRoot}${path.sep}`)) {
+          addViolation(filePath, `relative import "${specifier}" crosses a package boundary`);
+        }
+      }
     }
   }
 
-  if (
-    filePath.startsWith(packagesRoot) &&
-    !filePath.startsWith(frontendRoot)
-  ) {
+  if (filePath.startsWith(packagesRoot) && !filePath.startsWith(frontendRoot)) {
     for (const specifier of imports) {
       if (/^@app\/(?:api|web|mobile|desktop)(?:\/|$)/.test(specifier)) {
         addViolation(filePath, `package must not depend on runtime app "${specifier}"`);
@@ -312,10 +304,121 @@ async function checkFile(filePath) {
   }
 }
 
+async function workspaceManifests() {
+  const manifests = [];
+  for (const root of [appsRoot, packagesRoot]) {
+    const entries = await readdir(root, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isDirectory()) {
+        continue;
+      }
+      const manifestPath = path.join(root, entry.name, "package.json");
+      const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+      manifests.push({
+        directory: entry.name,
+        manifest,
+        manifestPath,
+        root
+      });
+    }
+  }
+  return manifests;
+}
+
+function checkManifestBoundaries(manifests) {
+  const byName = new Map(manifests.map((entry) => [entry.manifest.name, entry]));
+  const graph = new Map();
+
+  for (const entry of manifests) {
+    const allDependencies = {
+      ...entry.manifest.dependencies,
+      ...entry.manifest.devDependencies,
+      ...entry.manifest.optionalDependencies,
+      ...entry.manifest.peerDependencies
+    };
+    const runtimeDependencies = {
+      ...entry.manifest.dependencies,
+      ...entry.manifest.optionalDependencies,
+      ...entry.manifest.peerDependencies
+    };
+    const expectedPrefix =
+      entry.root === appsRoot ||
+      entry.directory === "contracts" ||
+      entry.directory === "frontend-app"
+        ? "@app/"
+        : "@product-foundation/";
+
+    if (
+      typeof entry.manifest.name !== "string" ||
+      !entry.manifest.name.startsWith(expectedPrefix)
+    ) {
+      addViolation(entry.manifestPath, `package name must use the ${expectedPrefix} namespace`);
+    }
+
+    if (foundationPackages.has(entry.directory)) {
+      for (const dependency of Object.keys(allDependencies)) {
+        if (dependency.startsWith("@app/")) {
+          addViolation(
+            entry.manifestPath,
+            `foundation manifest must not depend on product package "${dependency}"`
+          );
+        }
+      }
+    }
+
+    if (entry.root === packagesRoot) {
+      for (const dependency of Object.keys(allDependencies)) {
+        if (/^@app\/(?:api|web|mobile|desktop)$/.test(dependency)) {
+          addViolation(
+            entry.manifestPath,
+            `package manifest must not depend on runtime app "${dependency}"`
+          );
+        }
+      }
+    }
+
+    graph.set(
+      entry.manifest.name,
+      Object.keys(runtimeDependencies).filter((name) => byName.has(name))
+    );
+  }
+
+  const visiting = new Set();
+  const visited = new Set();
+  const stack = [];
+  function visit(name) {
+    if (visiting.has(name)) {
+      const cycleStart = stack.indexOf(name);
+      const cycle = [...stack.slice(cycleStart), name];
+      addViolation(
+        byName.get(name).manifestPath,
+        `workspace dependency cycle: ${cycle.join(" -> ")}`
+      );
+      return;
+    }
+    if (visited.has(name)) {
+      return;
+    }
+    visiting.add(name);
+    stack.push(name);
+    for (const dependency of graph.get(name) ?? []) {
+      visit(dependency);
+    }
+    stack.pop();
+    visiting.delete(name);
+    visited.add(name);
+  }
+
+  for (const name of graph.keys()) {
+    visit(name);
+  }
+}
+
 const files = [
   ...(await collectSourceFiles(packagesRoot)),
   ...(await collectSourceFiles(appsRoot))
 ];
+checkManifestBoundaries(await workspaceManifests());
 await Promise.all(files.map(checkFile));
 
 if (violations.length > 0) {

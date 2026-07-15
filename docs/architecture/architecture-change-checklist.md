@@ -13,9 +13,10 @@ Use this checklist in human and AI-agent reviews.
 
 - Is public input/output represented by a versioned contract and Zod schema?
 - Are domain/application files free from NestJS, Fastify and `pg`?
-- Does every tenant-owned repository require `WorkspaceScope`?
+- Does the product use the correct `DATA_SCOPE_MODE`?
+- Does every tenant-owned repository require `TenantScope`?
 - Does the transaction contain the state change and its outbox event?
-- Are retries protected by idempotency where mutation duplication matters?
+- Does every RPC mutation use the durable idempotency invoker?
 - Is the migration forward-only, immutable and expand/contract compatible?
 
 ## Security and reliability

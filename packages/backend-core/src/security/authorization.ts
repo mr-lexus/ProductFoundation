@@ -3,10 +3,7 @@ import type { AuthorizedRequestContext } from "./request-context.js";
 export type Permission = `${string}:${string}`;
 
 export interface AuthorizationPolicy {
-  allows(
-    context: AuthorizedRequestContext,
-    permission: Permission
-  ): Promise<boolean>;
+  allows(context: AuthorizedRequestContext, permission: Permission): Promise<boolean>;
 }
 
 export class AuthorizationDeniedError extends Error {

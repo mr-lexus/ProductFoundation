@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
 

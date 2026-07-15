@@ -1,14 +1,11 @@
 import {
-  systemPingRpcContract,
+  type RpcCallResult,
   type SystemPingInput,
   type SystemPingResponse,
-  type RpcCallResult
+  systemPingRpcContract
 } from "@app/contracts";
+import { callRpcProcedure, type RpcCallOptions } from "@product-foundation/rpc-client";
 import type { FrontendPlatformConfig } from "../../config/platform";
-import {
-  callRpcProcedure,
-  type RpcCallOptions
-} from "@product-foundation/rpc-client";
 
 export async function pingSystem(
   platform: FrontendPlatformConfig,

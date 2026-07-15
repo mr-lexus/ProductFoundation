@@ -4,13 +4,11 @@ import type { Http2ServerRequest } from "node:http2";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
 import { NestFactory } from "@nestjs/core";
-import {
-  FastifyAdapter,
-  type NestFastifyApplication
-} from "@nestjs/platform-fastify";
-import type { ApiRuntimeConfig } from "./config/load-api-config.js";
-import { AppModule } from "./app.module.js";
+import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
 import { resolveRequestId } from "@product-foundation/rpc-server";
+import type { FastifyRequest } from "fastify";
+import { AppModule } from "./app.module.js";
+import type { ApiRuntimeConfig } from "./config/load-api-config.js";
 import { MetricsService } from "./observability/metrics.service.js";
 
 interface CreateNestApplicationOptions {
@@ -20,6 +18,7 @@ interface CreateNestApplicationOptions {
 type NestRuntimeConfig = Pick<
   ApiRuntimeConfig,
   | "corsOrigins"
+  | "dataScopeMode"
   | "database"
   | "environment"
   | "logLevel"
@@ -53,6 +52,12 @@ export async function createNestApplication(
                   "req.body",
                   "res.headers.set-cookie"
                 ]
+              },
+              serializers: {
+                req: (request: FastifyRequest) => ({
+                  method: request.method,
+                  url: request.url?.split("?", 1)[0]
+                })
               }
             },
       requestIdHeader: false,
@@ -65,7 +70,7 @@ export async function createNestApplication(
     contentSecurityPolicy: false
   });
   await application.register(rateLimit, {
-    allowList: (request) => request.url.startsWith("/health"),
+    allowList: (request: FastifyRequest) => request.url.startsWith("/health"),
     max: config.rateLimit.max,
     timeWindow: config.rateLimit.windowMs
   });
@@ -83,30 +88,24 @@ export async function createNestApplication(
     }
     try {
       metrics.observeHttpRequest({
-        durationSeconds:
-          Number(process.hrtime.bigint() - startedAt) / 1_000_000_000,
+        durationSeconds: Number(process.hrtime.bigint() - startedAt) / 1_000_000_000,
         method: request.method,
         route: request.routeOptions?.url ?? "unmatched",
         status: response.statusCode
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
       process.stderr.write(
         `${JSON.stringify({
+          errorName: error instanceof Error ? error.name : "UnknownError",
           event: "http_metrics_observation_failed",
-          level: "error",
-          message
+          level: "error"
         })}\n`
       );
     }
   });
 
   application.enableCors({
-    allowedHeaders: [
-      "Content-Type",
-      "X-Idempotency-Key",
-      "X-Request-Id"
-    ],
+    allowedHeaders: ["Authorization", "Content-Type", "X-Idempotency-Key", "X-Request-Id"],
     credentials: true,
     exposedHeaders: ["X-Request-Id"],
     maxAge: 600,

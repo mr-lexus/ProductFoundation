@@ -138,6 +138,7 @@ modules/
     contract/
     domain/
     application/
+    infrastructure/
     transport/
 ```
 
@@ -170,6 +171,12 @@ Contains:
 * permission checks at the use-case boundary
 
 Application code may coordinate repositories, services, and domain functions, but it must not become a bag of unstructured helpers.
+
+### infrastructure
+
+Contains product repository adapters and external integrations that implement
+application ports. It may use foundation `SqlExecutor` capabilities but never
+imports the `pg` driver directly.
 
 ### transport
 
@@ -316,9 +323,9 @@ Rules:
 * domain code does not perform I/O
 * transport code does not query storage directly
 * `pg` imports remain inside `@product-foundation/backend-postgres`
-* raw `SqlExecutor` is for infrastructure/system operations; tenant-owned
-  repositories run through `TenantTransactionRunner`
-* every tenant-owned repository method accepts an explicit `WorkspaceScope`
+* `DATA_SCOPE_MODE=global` exports ordinary SQL/transaction ports
+* `DATA_SCOPE_MODE=tenant` exports only `TenantTransactionRunner` to product modules
+* every tenant-owned repository method accepts an explicit `TenantScope`
 * state changes and their outbox messages share one transaction
 * applied SQL migrations are immutable and forward-only
 
@@ -470,9 +477,9 @@ Confirmed decisions:
 * deployment — modular monolith first
 * persistence — PostgreSQL through `@product-foundation/backend-postgres`
 * migrations — immutable versioned SQL with checksums and an advisory lock
-* tenancy — explicit workspace scope and transaction-local PostgreSQL context
+* scope — explicit `global | tenant` operation scope; tenancy is opt-in
 * async consistency — transactional outbox and a separate worker entrypoint
-* repeated mutations — workspace-scoped idempotency ledger
+* mutations — durable scope-aware idempotency ledger with lease ownership
 
 Open decisions that require a dedicated ADR before implementation:
 

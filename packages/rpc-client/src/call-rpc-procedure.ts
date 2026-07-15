@@ -1,8 +1,8 @@
 import {
   createRpcSuccessResponseSchema,
-  rpcErrorResponseSchema,
   type RpcCallResult,
-  type RpcProcedureContract
+  type RpcProcedureContract,
+  rpcErrorResponseSchema
 } from "@product-foundation/rpc";
 import { RpcClientError } from "./rpc-client-error.js";
 

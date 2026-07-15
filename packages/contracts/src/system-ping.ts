@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { defineRpcProcedure } from "@product-foundation/rpc";
+import { z } from "zod";
 
 export const clientPlatformSchema = z.enum(["web", "mobile", "desktop"]);
 
@@ -14,7 +14,7 @@ export type SystemPingInput = z.infer<typeof systemPingInputSchema>;
 export const systemPingResponseSchema = z.object({
   message: z.string(),
   platform: clientPlatformSchema,
-  template: z.literal("product-foundation-starter")
+  status: z.literal("ready")
 });
 
 export type SystemPingResponse = z.infer<typeof systemPingResponseSchema>;

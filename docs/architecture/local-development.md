@@ -2,7 +2,7 @@
 
 ## Требования
 
-- Node.js 22+
+- Node.js 24
 - pnpm 11.7.0 через Corepack
 - Docker с Compose plugin
 
@@ -27,6 +27,15 @@ pnpm dev:demo
 ```bash
 pnpm --filter @app/api worker:dev
 ```
+
+Native frontend builds require an API URL:
+
+```bash
+VITE_API_URL=http://localhost:3001 pnpm build:mobile
+VITE_API_URL=http://localhost:3001 pnpm tauri:dev
+```
+
+Worker health and metrics are exposed on port `9464`.
 
 ## Полный контейнерный путь
 

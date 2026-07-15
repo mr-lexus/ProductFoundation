@@ -1,4 +1,4 @@
-import { Module, type DynamicModule } from "@nestjs/common";
+import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
 import { SystemModule } from "../modules/system/transport/system.module.js";
 import type { ApiRuntimeConfig } from "./config/load-api-config.js";
@@ -8,10 +8,9 @@ import { RpcHttpExceptionFilter } from "./http/rpc-http-exception.filter.js";
 import { ObservabilityModule } from "./observability/observability.module.js";
 
 @Module({})
+// biome-ignore lint/complexity/noStaticOnlyClass: NestJS dynamic modules are class-based.
 export class AppModule {
-  static register(
-    config: Pick<ApiRuntimeConfig, "database">
-  ): DynamicModule {
+  static register(config: Pick<ApiRuntimeConfig, "database" | "dataScopeMode">): DynamicModule {
     return {
       controllers: [HealthController],
       imports: [
@@ -19,7 +18,7 @@ export class AppModule {
         ObservabilityModule,
         ...(config.database === undefined
           ? []
-          : [DatabaseModule.register(config.database)])
+          : [DatabaseModule.register(config.database, config.dataScopeMode)])
       ],
       module: AppModule,
       providers: [

@@ -1,4 +1,5 @@
 export * from "./audit/audit-event.js";
+export * from "./idempotency/execute-idempotently.js";
 export * from "./idempotency/idempotency-store.js";
 export * from "./messaging/outbox.js";
 export * from "./messaging/outbox-worker.js";

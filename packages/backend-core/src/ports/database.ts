@@ -10,10 +10,7 @@ export interface SqlExecutor {
   ): Promise<SqlQueryResult<TRow>>;
 }
 
-export type TransactionIsolationLevel =
-  | "read committed"
-  | "repeatable read"
-  | "serializable";
+export type TransactionIsolationLevel = "read committed" | "repeatable read" | "serializable";
 
 export interface TransactionOptions {
   readonly isolationLevel?: TransactionIsolationLevel;
@@ -21,10 +18,7 @@ export interface TransactionOptions {
 }
 
 export interface TransactionRunner {
-  run<T>(
-    work: (transaction: SqlExecutor) => Promise<T>,
-    options?: TransactionOptions
-  ): Promise<T>;
+  run<T>(work: (transaction: SqlExecutor) => Promise<T>, options?: TransactionOptions): Promise<T>;
 }
 
 export interface DatabaseHealthCheck {

@@ -1,7 +1,8 @@
 # AI Development Rules — Backend Core
 
 `@product-foundation/backend-core` contains only framework-neutral application
-ports, security/tenant context, durable orchestration and shared backend types.
+ports, global/tenant operation scope, durable orchestration and shared backend
+types.
 
 Never import NestJS, Fastify, PostgreSQL drivers, metrics SDKs, React or product
 packages here. Do not add product entities, permissions or workflows. External

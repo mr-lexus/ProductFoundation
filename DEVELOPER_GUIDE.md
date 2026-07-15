@@ -2,66 +2,102 @@
 
 ## Что это
 
-Это готовая техническая основа продукта. Репозиторий копируется целиком, после
-чего команда добавляет свою предметную область, интерфейс и интеграции.
+Это нейтральная техническая основа продукта. Репозиторий копируется целиком и
+уже содержит общий frontend, NestJS API, RPC, PostgreSQL, worker, проверки,
+Docker и CI. Предметной области, готовой авторизации и дизайн-системы здесь нет.
 
-Здесь намеренно нет готовой авторизации, дизайн-системы и бизнес-сущностей:
-они зависят от конкретного продукта. При этом места их подключения и безопасные
-границы уже подготовлены.
-
-## Карта репозитория
+## Что где лежит
 
 ```text
 apps/
-  api/          NestJS API, worker и сборка backend-модулей
-  web/          запуск общего frontend в браузере
-  mobile/       Capacitor shell для iOS и Android
+  api/          NestJS composition, продуктовые backend-модули и worker
+  web/          Vite-сборка общего frontend
+  mobile/       Capacitor shell
   desktop/      Tauri shell
 
 packages/
-  contracts/            публичные схемы и DTO конкретного продукта
-  frontend-app/         общий React frontend для всех платформ
-  rpc/                  формат RPC-протокола
-  rpc-client/           нейтральный RPC-клиент
-  rpc-server/           выполнение и валидация RPC на сервере
-  backend-core/         интерфейсы auth, tenancy, transactions и outbox
-  backend-postgres/     PostgreSQL-адаптеры и foundation migrations
-  config/               общие настройки TypeScript и инструментов
+  contracts/          продуктовые Zod/RPC-контракты
+  frontend-app/       общий React frontend для всех платформ
+  rpc/                формат RPC-протокола
+  rpc-client/         RPC-клиент
+  rpc-server/         валидация и выполнение RPC
+  backend-core/       auth/scope ports, idempotency и outbox orchestration
+  backend-postgres/   PostgreSQL-адаптеры и foundation migrations
+  config/             общие настройки инструментов
 
-docs/
-  adr/           почему приняты долгоживущие решения
-  architecture/  подробное устройство и эксплуатация
+docs/adr/             почему приняты долгоживущие решения
+docs/architecture/    устройство и эксплуатация
 ```
 
-`apps/*` запускают приложение. `packages/*` содержат код, который они собирают.
-Runtime shells должны оставаться тонкими.
+Правило простое: `apps/*` запускают систему, `packages/*` содержат общий код.
+Foundation-пакеты не импортируют `@app/*`.
 
-## Куда добавлять backend-функцию
+## Как начать новый продукт
 
-Создайте capability в `apps/api/src/modules/<name>`:
+1. Переименуйте placeholder identifiers из раздела ниже.
+2. Выберите `DATA_SCOPE_MODE=global` или `tenant`.
+3. Выберите identity/session model и permission vocabulary.
+4. Создайте первый контракт в `packages/contracts`.
+5. Создайте backend capability в `apps/api/src/modules/<name>`.
+6. Добавьте первую SQL-миграцию в `apps/api/migrations`.
+7. Создайте frontend slice в `packages/frontend-app/src`.
+8. Выполните `pnpm check`, `pnpm build` и `pnpm smoke:compose`.
+
+## Backend capability
 
 ```text
-contract/       связь с публичным контрактом
-domain/         чистые бизнес-правила без NestJS и базы
-application/    use cases, permissions и транзакции
-transport/      тонкий NestJS controller и DI composition
+apps/api/src/modules/<name>/
+  contract/       связь с публичным контрактом
+  domain/         чистые бизнес-правила
+  application/    use cases, permissions, ports и транзакции
+  infrastructure/ product repository adapters, если нужны
+  transport/      тонкие NestJS controllers и module composition
 ```
 
-Порядок работы:
+Зависимости идут внутрь: `transport/infrastructure → application → domain`.
+Domain и application не импортируют NestJS, Fastify или `pg`.
 
-1. Добавьте Zod contract в `packages/contracts`.
-2. Напишите domain-правила и use case.
-3. Подключите репозиторий через application port.
-4. Добавьте SQL в отдельную product migration directory и используйте стабильный
-   namespace продукта. Foundation migrations не редактируйте.
-5. Подключите use case тонким RPC controller.
-6. Зарегистрируйте Nest module в `apps/api/src/app/app.module.ts`.
-7. Добавьте domain/application tests и boundary test.
+Порядок добавления RPC:
 
-Направление зависимостей: `transport → application → domain`. Обратные импорты
-запрещены. NestJS, Fastify и `pg` не должны попадать в domain/application.
+1. Создать Zod input/output и procedure contract.
+2. Написать domain/application код и тесты.
+3. Подключить repository через application port.
+4. Создать тонкий NestJS controller.
+5. Зарегистрировать module в `AppModule`.
 
-## Куда добавлять frontend-функцию
+Все RPC mutations обязаны передавать в `executeRpcProcedure` invoker из
+`apps/api/src/shared/application/create-idempotent-rpc-handler-invoker.ts`.
+Executor требует `X-Idempotency-Key`, проверяет payload hash, lease ownership и
+возвращает сохранённый результат при повторе. Mutation без durable invoker
+завершается ошибкой и не вызывает handler.
+
+Синхронный handler должен укладываться в настроенный idempotency lease. Долгую
+работу оформляйте как короткую транзакцию + outbox event, а не держите RPC и
+lease открытыми минутами.
+
+## Global и tenant продукты
+
+`DATA_SCOPE_MODE=global` подходит продукту с общей схемой данных. Product modules
+получают обычные `SqlExecutor` и `TransactionRunner`.
+
+`DATA_SCOPE_MODE=tenant` включает изоляцию арендаторов. Product modules получают
+только `TenantTransactionRunner`; он устанавливает transaction-local
+`app.tenant_id`. Tenant-owned repository принимает явный `TenantScope`.
+
+Idempotency, outbox и audit используют `OperationScope`: `global` либо `tenant`.
+Поэтому простой продукт не создаёт фиктивный tenant.
+
+## PostgreSQL и worker
+
+- `packages/backend-postgres/migrations` — неизменяемые foundation migrations.
+- `apps/api/migrations` — готовое место product migrations.
+- `PRODUCT_MIGRATION_NAMESPACE` — стабильный namespace продукта.
+- Foundation migrations всегда выполняются раньше product migrations.
+- State change и outbox event записываются одной транзакцией.
+- Worker имеет lease/retry/dead-letter, retention cleanup, health и Prometheus.
+- Worker health: `:9464/health/ready`; metrics: `:9464/metrics`.
+
+## Frontend и платформы
 
 Общий frontend находится в `packages/frontend-app/src`:
 
@@ -69,71 +105,40 @@ transport/      тонкий NestJS controller и DI composition
 app → pages → widgets → features → entities → shared
 ```
 
-Импортировать можно только вправо по этой цепочке. Например, `features` может
-использовать `entities` и `shared`, но `entities` не может импортировать feature.
+Импортировать можно только вправо. HTTP/RPC находится в `shared/api`, server
+state — в TanStack Query, локальное состояние — в React. Router или Zustand
+добавляются тогда, когда появляется реальная задача для них.
 
-- `pages` собирают экран;
-- `widgets` собирают большие блоки экрана;
-- `features` реализуют действия пользователя;
-- `entities` содержат продуктовые модели и правила;
-- `shared` содержит только UI/API/config/lib без бизнес-смысла.
+Web production по умолчанию использует same-origin API. Для Capacitor и Tauri
+`VITE_API_URL` обязателен. Platform build передаёт `web`, `mobile` или `desktop`
+в общий frontend; отдельные копии UI не создаются.
 
-HTTP/RPC вызовы размещайте в `shared/api`, server state — в TanStack Query,
-локальное состояние компонента — в React. Zustand нужен только для действительно
-общего долгоживущего client state.
-
-Не копируйте feature в `apps/web`, `apps/mobile` и `apps/desktop`. Эти каталоги
-только запускают общий frontend и подключают возможности платформы.
-
-## Contracts и RPC
-
-Публичная схема frontend/backend лежит в `packages/contracts`. Она содержит Zod
-input/output schemas и procedure definition, но не бизнес-сервисы и не database
-models. API и frontend импортируют один контракт, поэтому несовместимая форма
-ловится при сборке и runtime-валидации.
-
-`system-ping` — технический сквозной пример. Он показывает полный путь запроса и
-может быть удалён, когда первый продуктовый RPC покрывает тот же путь тестом.
-
-## PostgreSQL и фоновые задачи
-
-- `packages/backend-postgres/migrations` содержит только неизменяемые foundation
-  migrations: idempotency и outbox.
-- Product migrations храните отдельно и запускайте после foundation migrations.
-- Каждому продукту нужен собственный migration namespace.
-- Tenant-owned запросы выполняйте через `TenantTransactionRunner`.
-- Изменение состояния и запись outbox event должны быть одной транзакцией.
-- Worker запускается отдельно командой `pnpm --filter @app/api worker`.
+```bash
+pnpm build:web
+VITE_API_URL=https://api.example.com pnpm build:mobile
+VITE_API_URL=https://api.example.com pnpm tauri:build
+```
 
 ## Что переименовать после копирования
 
-Минимально замените:
+- `product-foundation-starter` — имя репозитория и корневого npm package;
+- `Product Starter` — title приложений;
+- `com.example.product` — Capacitor/Tauri identifiers;
+- `app` — product migration namespace, PostgreSQL names и metric prefix;
+- `@app/*` — только если команде нужен собственный package namespace.
 
-- `product-foundation-starter` — имя репозитория и Compose project;
-- `@app/*` — при необходимости на namespace команды/продукта;
-- `Product Starter` — title web/mobile/desktop;
-- `com.example.product` — Capacitor и Tauri identifiers;
-- `app` — локальные имя/пользователь PostgreSQL;
-- `app_*` — prefix метрик.
+`@product-foundation/*` можно оставить: это внутреннее техническое ядро.
 
-`@product-foundation/*` можно оставить: это внутреннее техническое ядро workspace.
-
-## Проверка перед завершением задачи
+## Главные проверки
 
 ```bash
-pnpm check
-pnpm build
-pnpm smoke:api
+pnpm check          # Biome, architecture, TypeScript и тесты
+pnpm check:native   # Capacitor config и cargo check
+pnpm build          # production web/API build
+pnpm smoke:api      # запуск compiled API
+pnpm smoke:compose  # DB + migrations + API + worker
 ```
 
-Если менялись PostgreSQL, Docker или startup configuration, дополнительно:
-
-```bash
-docker compose up --build
-curl http://localhost:3001/health/ready
-docker compose down --volumes
-```
-
-Не утверждайте, что изменение готово, если соответствующая проверка не была
-запущена. Более строгие правила для конкретных каталогов находятся в ближайших
-`AGENTS.md`.
+PostgreSQL integration test запускается автоматически в CI через
+`TEST_DATABASE_URL`. Не объявляйте изменение готовым, если относящаяся к нему
+проверка не выполнена.

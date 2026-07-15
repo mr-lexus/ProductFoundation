@@ -81,7 +81,7 @@ Handler получает:
 - validated `idempotencyKey` либо `null`;
 - время приёма;
 - `AbortSignal`;
-- actor (`userId`, `workspaceId`) либо `null` до auth middleware.
+- actor (`kind`, `subjectId`) либо `null` до auth middleware.
 
 После введения auth transport создаёт actor, а use case выполняет авторизацию.
 Repositories не читают HTTP headers, Nest execution context или Fastify request.
@@ -92,10 +92,14 @@ TanStack Query передаёт `signal` в RPC client, затем в `fetch` и
 Отмена не является server rollback: use case всё равно обязан использовать
 transaction boundary для атомарности.
 
-Автоматический retry допустим только для queries и idempotent mutations.
-`x-idempotency-key` зарезервирован протоколом; до появления persistent
-idempotency ledger mutation нельзя объявлять безопасной для автоматического
-повтора.
+Автоматический retry допустим только для queries и idempotent mutations. Каждая
+mutation требует `x-idempotency-key` и durable handler invoker. Ledger хранит
+scope, payload hash, owner token, lease и успешный output; повтор с тем же
+payload возвращает сохранённый результат.
+
+Синхронная mutation должна завершаться внутри своего lease. Длительные операции
+ставятся в transactional outbox и продолжаются worker-ом с отдельной политикой
+retry/lease.
 
 ## Версионирование
 

@@ -6,8 +6,9 @@ and owns foundation SQL migrations.
 Allowed here:
 
 - pool lifecycle and transaction mechanics;
-- tenant transaction context;
+- optional tenant transaction context;
 - idempotency and outbox storage;
+- outbox inspection and retention cleanup;
 - migration runner and product-neutral platform tables.
 
 Forbidden here:

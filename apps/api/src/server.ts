@@ -1,5 +1,5 @@
-import { createNestApplication } from "./app/create-nest-application.js";
 import { loadApiConfig } from "./app/config/load-api-config.js";
+import { createNestApplication } from "./app/create-nest-application.js";
 
 async function bootstrap() {
   const config = loadApiConfig();
@@ -8,16 +8,16 @@ async function bootstrap() {
   application.enableShutdownHooks();
   await application.listen(config.port, "0.0.0.0");
 
-  application
-    .getHttpAdapter()
-    .getInstance()
-    .log.info({ event: "api_started", port: config.port });
+  application.getHttpAdapter().getInstance().log.info({ event: "api_started", port: config.port });
 }
 
 bootstrap().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "Unknown error";
   process.stderr.write(
-    `${JSON.stringify({ event: "api_start_failed", level: "fatal", message })}\n`
+    `${JSON.stringify({
+      errorName: error instanceof Error ? error.name : "UnknownError",
+      event: "api_start_failed",
+      level: "fatal"
+    })}\n`
   );
   process.exitCode = 1;
 });

@@ -4,11 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "LIBGL_ALWAYS_SOFTWARE=1 cargo tauri dev",
-    "build": "tauri build"
-  },
-  "dependencies": {
-    "@app/frontend-app": "workspace:*"
+    "build": "tauri build",
+    "build:ci": "tauri build --no-bundle",
+    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "dev": "tauri dev"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

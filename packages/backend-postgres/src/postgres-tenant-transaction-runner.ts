@@ -1,40 +1,30 @@
 import type {
   SqlExecutor,
+  TenantScope,
+  TenantSqlExecutor,
+  TenantTransactionRunner,
   TransactionOptions,
   TransactionRunner
 } from "@product-foundation/backend-core";
-import type { WorkspaceScope } from "@product-foundation/backend-core";
-import type {
-  TenantSqlExecutor,
-  TenantTransactionRunner
-} from "@product-foundation/backend-core";
 
-function scopeExecutor(
-  transaction: SqlExecutor,
-  workspace: WorkspaceScope
-): TenantSqlExecutor {
+function scopeExecutor(transaction: SqlExecutor, scope: TenantScope): TenantSqlExecutor {
   return {
     query: (text, values) => transaction.query(text, values),
-    workspace
+    scope
   };
 }
 
-export class PostgresTenantTransactionRunner
-  implements TenantTransactionRunner
-{
+export class PostgresTenantTransactionRunner implements TenantTransactionRunner {
   constructor(private readonly transactions: TransactionRunner) {}
 
   run<T>(
-    workspace: WorkspaceScope,
+    scope: TenantScope,
     work: (transaction: TenantSqlExecutor) => Promise<T>,
     options?: TransactionOptions
   ) {
     return this.transactions.run(async (transaction) => {
-      await transaction.query(
-        "SELECT set_config('app.workspace_id', $1, true)",
-        [workspace.workspaceId]
-      );
-      return work(scopeExecutor(transaction, workspace));
+      await transaction.query("SELECT set_config('app.tenant_id', $1, true)", [scope.tenantId]);
+      return work(scopeExecutor(transaction, scope));
     }, options);
   }
 }

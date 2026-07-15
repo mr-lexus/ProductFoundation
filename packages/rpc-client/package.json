@@ -10,16 +10,22 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build:dependencies": "pnpm --filter @product-foundation/rpc build",
     "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
-    "check": "pnpm build:dependencies && tsc --noEmit"
+    "check": "pnpm build:dependencies && tsc --noEmit",
+    "test": "pnpm build:dependencies && tsx --test src/call-rpc-procedure.test.ts"
   },
   "dependencies": {
     "@product-foundation/rpc": "workspace:*"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "zod": "^3.25.76",
     "typescript": "^5.8.0"
   }
 }

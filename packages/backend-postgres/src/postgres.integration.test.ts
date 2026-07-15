@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PostgresDatabase } from "./postgres-database.js";
-import { runSqlMigrations } from "./run-sql-migrations.js";
+import { globalScope, hashIdempotencyPayload } from "@product-foundation/backend-core";
 import { foundationMigrationsDirectory } from "./index.js";
+import { PostgresDatabase } from "./postgres-database.js";
 import { PostgresIdempotencyStore } from "./postgres-idempotency-store.js";
 import { PostgresOutboxStore } from "./postgres-outbox-store.js";
-import {
-  hashIdempotencyPayload
-} from "@product-foundation/backend-core";
-import { createWorkspaceId } from "@product-foundation/backend-core";
+import { runSqlMigrations } from "./run-sql-migrations.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationTest = databaseUrl === undefined ? test.skip : test;
@@ -41,9 +38,7 @@ integrationTest(
           id uuid PRIMARY KEY
         )
       `);
-      await database.query(
-        "TRUNCATE TABLE platform.architecture_transaction_probe"
-      );
+      await database.query("TRUNCATE TABLE platform.architecture_transaction_probe");
 
       await assert.rejects(
         database.run(async (transaction) => {
@@ -81,19 +76,17 @@ integrationTest(
       assert.equal(migrationJournal.rows[0]?.count, "2");
 
       const idempotency = new PostgresIdempotencyStore(database, database);
+      const firstOwner = { ownerId: crypto.randomUUID() };
       const idempotencyKey = {
         key: `test-${crypto.randomUUID()}`,
         procedureId: "architecture.probe",
         requestHash: hashIdempotencyPayload('{"value":1}'),
-        workspace: {
-          workspaceId: createWorkspaceId(
-            "cf7fe917-bc28-4ea4-9b27-6b389440686d"
-          )
-        }
+        scope: globalScope
       };
 
       assert.deepEqual(
         await idempotency.claim(idempotencyKey, {
+          ...firstOwner,
           leaseMs: 30_000,
           ttlMs: 60_000
         }),
@@ -101,6 +94,7 @@ integrationTest(
       );
       assert.deepEqual(
         await idempotency.claim(idempotencyKey, {
+          ownerId: crypto.randomUUID(),
           leaseMs: 30_000,
           ttlMs: 60_000
         }),
@@ -112,17 +106,30 @@ integrationTest(
             ...idempotencyKey,
             requestHash: hashIdempotencyPayload('{"value":2}')
           },
-          { leaseMs: 30_000, ttlMs: 60_000 }
+          {
+            leaseMs: 30_000,
+            ownerId: crypto.randomUUID(),
+            ttlMs: 60_000
+          }
         ),
         { kind: "conflict" }
       );
 
-      await idempotency.complete(idempotencyKey, {
+      await assert.rejects(
+        idempotency.complete(
+          idempotencyKey,
+          { ownerId: crypto.randomUUID() },
+          { body: { ok: true }, status: 200 }
+        ),
+        /lost ownership/
+      );
+      await idempotency.complete(idempotencyKey, firstOwner, {
         body: { ok: true },
         status: 200
       });
       assert.deepEqual(
         await idempotency.claim(idempotencyKey, {
+          ownerId: crypto.randomUUID(),
           leaseMs: 30_000,
           ttlMs: 60_000
         }),
@@ -143,7 +150,7 @@ integrationTest(
         occurredAt: new Date(),
         payload: { value: 1 },
         schemaVersion: 1,
-        workspace: idempotencyKey.workspace
+        scope: idempotencyKey.scope
       };
 
       await assert.rejects(
@@ -165,7 +172,11 @@ integrationTest(
         leaseMs: 30_000,
         workerId: "integration-worker"
       });
-      assert.equal(claimed.some((message) => message.id === eventId), true);
+      assert.equal(
+        claimed.some((message) => message.id === eventId),
+        true
+      );
+      await assert.rejects(outbox.complete(eventId, "another-worker"), /lost ownership/);
       await outbox.complete(eventId, "integration-worker");
 
       const delivered = await database.query<{ processed: boolean }>(
@@ -175,9 +186,7 @@ integrationTest(
       );
       assert.equal(delivered.rows[0]?.processed, true);
     } finally {
-      await database.query(
-        "DROP TABLE IF EXISTS platform.architecture_transaction_probe"
-      );
+      await database.query("DROP TABLE IF EXISTS platform.architecture_transaction_probe");
       await database.close();
     }
   }

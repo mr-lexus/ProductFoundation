@@ -1,5 +1,5 @@
 import type { SqlExecutor } from "../ports/database.js";
-import type { WorkspaceScope } from "../security/request-context.js";
+import type { OperationScope } from "../security/request-context.js";
 
 export interface OutboxEvent {
   readonly aggregateId: string;
@@ -9,7 +9,7 @@ export interface OutboxEvent {
   readonly occurredAt: Date;
   readonly payload: unknown;
   readonly schemaVersion: number;
-  readonly workspace: WorkspaceScope;
+  readonly scope: OperationScope;
 }
 
 export interface ClaimedOutboxMessage extends OutboxEvent {
@@ -36,6 +36,22 @@ export interface OutboxStore {
     readonly retryDelayMs: number;
     readonly workerId: string;
   }): Promise<void>;
+}
+
+export interface OutboxStats {
+  readonly deadLetterCount: number;
+  readonly oldestPendingAt: Date | null;
+  readonly pendingCount: number;
+}
+
+export interface OutboxMaintenanceStore {
+  inspect(): Promise<OutboxStats>;
+
+  purgeFinalized(options: {
+    readonly batchSize: number;
+    readonly deadLetteredBefore: Date;
+    readonly processedBefore: Date;
+  }): Promise<number>;
 }
 
 export interface OutboxMessageHandler {

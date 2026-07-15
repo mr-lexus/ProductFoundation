@@ -1,6 +1,6 @@
-import type { SystemPingInput, SystemPingResponse } from "../contract/index.js";
-import { pingSystem } from "../application/ping-system.js";
 import type { RpcHandler } from "@product-foundation/rpc-server";
+import { pingSystem } from "../application/ping-system.js";
+import type { SystemPingInput, SystemPingResponse } from "../contract/index.js";
 
 export type SystemPingRpcHandler = RpcHandler<SystemPingInput, SystemPingResponse>;
 

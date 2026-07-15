@@ -12,8 +12,8 @@ export function FrontendAppShell({ platform }: FrontendAppShellProps) {
         <p className="frontend-app__eyebrow">Shared frontend package</p>
         <h1 className="frontend-app__title">{platform.title}</h1>
         <p className="frontend-app__subtitle">
-          This neutral smoke screen verifies the shared frontend, versioned RPC,
-          NestJS API and runtime shell before product code is added.
+          This neutral smoke screen verifies the shared frontend, versioned RPC, NestJS API and
+          runtime shell before product code is added.
         </p>
       </header>
 

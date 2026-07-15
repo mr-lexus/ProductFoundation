@@ -1,11 +1,5 @@
-import {
-  createSystemStatusModel,
-  type SystemStatusModel
-} from "../../../entities/system";
-import type {
-  SystemPingResponse,
-  RpcCallResult
-} from "@app/contracts";
+import type { RpcCallResult, SystemPingResponse } from "@app/contracts";
+import { createSystemStatusModel, type SystemStatusModel } from "../../../entities/system";
 
 export function createSystemPingViewModel(
   result: RpcCallResult<SystemPingResponse>,

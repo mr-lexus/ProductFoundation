@@ -2,14 +2,10 @@ import { spawn } from "node:child_process";
 
 const port = 39_127;
 const baseUrl = `http://127.0.0.1:${port}`;
-const child = spawn(
-  process.execPath,
-  ["--enable-source-maps", "apps/api/dist/server.js"],
-  {
-    env: { ...process.env, PORT: String(port) },
-    stdio: ["ignore", "pipe", "pipe"]
-  }
-);
+const child = spawn(process.execPath, ["--enable-source-maps", "apps/api/dist/server.js"], {
+  env: { ...process.env, PORT: String(port) },
+  stdio: ["ignore", "pipe", "pipe"]
+});
 
 let output = "";
 child.stdout.setEncoding("utf8");
@@ -21,8 +17,7 @@ child.stderr.on("data", (chunk) => {
   output += chunk;
 });
 
-const delay = (milliseconds) =>
-  new Promise((resolve) => setTimeout(resolve, milliseconds));
+const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function waitForApi() {
   const deadline = Date.now() + 10_000;

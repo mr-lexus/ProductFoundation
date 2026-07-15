@@ -1,4 +1,3 @@
-import { Pool, type PoolClient, type PoolConfig } from "pg";
 import type {
   DatabaseHealthCheck,
   SqlExecutor,
@@ -7,6 +6,7 @@ import type {
   TransactionOptions,
   TransactionRunner
 } from "@product-foundation/backend-core";
+import { Pool, type PoolClient, type PoolConfig } from "pg";
 
 export interface PostgresDatabaseOptions {
   readonly connectionTimeoutMs: number;
@@ -15,9 +15,7 @@ export interface PostgresDatabaseOptions {
   readonly url: string;
 }
 
-const isolationStatements: Readonly<
-  Record<TransactionIsolationLevel, string>
-> = {
+const isolationStatements: Readonly<Record<TransactionIsolationLevel, string>> = {
   "read committed": "SET TRANSACTION ISOLATION LEVEL READ COMMITTED",
   "repeatable read": "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ",
   serializable: "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE"
@@ -41,9 +39,7 @@ function createExecutor(client: PoolClient): SqlExecutor {
   };
 }
 
-export class PostgresDatabase
-  implements SqlExecutor, TransactionRunner, DatabaseHealthCheck
-{
+export class PostgresDatabase implements SqlExecutor, TransactionRunner, DatabaseHealthCheck {
   readonly #pool: Pool;
 
   constructor(options: PostgresDatabaseOptions) {

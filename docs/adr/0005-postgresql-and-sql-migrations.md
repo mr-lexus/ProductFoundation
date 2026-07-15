@@ -5,7 +5,7 @@
 
 ## Context
 
-The backend needs durable transactions, tenant-aware repositories, idempotency
+The backend needs durable transactions, optional tenant-aware repositories, idempotency
 and a transactional outbox. Product query patterns are not known yet, so an ORM
 chosen now would encode assumptions without evidence.
 
@@ -17,8 +17,8 @@ chosen now would encode assumptions without evidence.
 - Application code depends on `SqlExecutor`, `TransactionRunner` and
   `TenantTransactionRunner` ports.
 - Foundation schema history is a sorted set of immutable SQL files in
-  `packages/backend-postgres/migrations`; product histories use separate
-  namespaced migration sets.
+  `packages/backend-postgres/migrations`; the ready product history lives in
+  `apps/api/migrations` and uses its configured namespace.
 - The migration runner uses one PostgreSQL advisory lock, records SHA-256
   checksums and rejects modified applied migrations.
 - Deployments run migrations as a separate one-shot step before API/worker.

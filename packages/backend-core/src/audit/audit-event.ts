@@ -1,7 +1,4 @@
-import type {
-  RequestActor,
-  WorkspaceScope
-} from "../security/request-context.js";
+import type { OperationScope, RequestActor } from "../security/request-context.js";
 
 export type AuditMetadataValue = boolean | number | string | null;
 
@@ -13,9 +10,9 @@ export interface AuditEvent {
   readonly occurredAt: Date;
   readonly outcome: "allowed" | "denied" | "failed" | "succeeded";
   readonly requestId: string;
+  readonly scope: OperationScope;
   readonly targetId?: string;
   readonly targetType?: string;
-  readonly workspace: WorkspaceScope;
 }
 
 export interface AuditSink {

@@ -1,25 +1,21 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type {
+  ClaimedOutboxMessage,
+  OutboxStore,
   SqlExecutor,
   TransactionRunner
 } from "@product-foundation/backend-core";
 import {
   AuthorizationDeniedError,
+  type AuthorizedRequestContext,
+  createTenantId,
+  createUserId,
   denyByDefaultAuthorizationPolicy,
+  OutboxWorker,
   requirePermission
 } from "@product-foundation/backend-core";
-import {
-  createUserId,
-  createWorkspaceId,
-  type AuthorizedRequestContext
-} from "@product-foundation/backend-core";
 import { PostgresTenantTransactionRunner } from "@product-foundation/backend-postgres";
-import type {
-  ClaimedOutboxMessage,
-  OutboxStore
-} from "@product-foundation/backend-core";
-import { OutboxWorker } from "@product-foundation/backend-core";
 
 function context(): AuthorizedRequestContext {
   return {
@@ -28,26 +24,21 @@ function context(): AuthorizedRequestContext {
       userId: createUserId("2dd14b91-a7dc-4a2c-9c49-f62296ae9df3")
     },
     requestId: "request-1",
-    workspace: {
-      workspaceId: createWorkspaceId(
-        "cf7fe917-bc28-4ea4-9b27-6b389440686d"
-      )
+    scope: {
+      kind: "tenant",
+      tenantId: createTenantId("cf7fe917-bc28-4ea4-9b27-6b389440686d")
     }
   };
 }
 
 test("authorization denies access unless an explicit policy allows it", async () => {
   await assert.rejects(
-    requirePermission(
-      denyByDefaultAuthorizationPolicy,
-      context(),
-      "workspace:read"
-    ),
+    requirePermission(denyByDefaultAuthorizationPolicy, context(), "tenant:read"),
     AuthorizationDeniedError
   );
 });
 
-test("tenant transaction installs workspace scope before repository work", async () => {
+test("tenant transaction installs tenant scope before repository work", async () => {
   const queries: Array<{ text: string; values: readonly unknown[] }> = [];
   const executor: SqlExecutor = {
     async query(text, values = []) {
@@ -61,27 +52,28 @@ test("tenant transaction installs workspace scope before repository work", async
     }
   };
   const runner = new PostgresTenantTransactionRunner(transactions);
-  const workspace = context().workspace;
+  const scope = context().scope;
+  assert.equal(scope.kind, "tenant");
 
-  await runner.run(workspace, async (transaction) => {
-    assert.equal(transaction.workspace, workspace);
-    await transaction.query("SELECT current_setting('app.workspace_id')");
+  await runner.run(scope, async (transaction) => {
+    assert.equal(transaction.scope, scope);
+    await transaction.query("SELECT current_setting('app.tenant_id')");
   });
 
   assert.deepEqual(queries, [
     {
-      text: "SELECT set_config('app.workspace_id', $1, true)",
-      values: [workspace.workspaceId]
+      text: "SELECT set_config('app.tenant_id', $1, true)",
+      values: [scope.tenantId]
     },
     {
-      text: "SELECT current_setting('app.workspace_id')",
+      text: "SELECT current_setting('app.tenant_id')",
       values: []
     }
   ]);
 });
 
 test("tenant identifiers reject non-UUID input", () => {
-  assert.throws(() => createWorkspaceId("workspace-1"), /must be a UUID/);
+  assert.throws(() => createTenantId("tenant-1"), /must be a UUID/);
   assert.throws(() => createUserId("user-1"), /must be a UUID/);
 });
 
@@ -95,7 +87,7 @@ function claimedMessage(attemptCount = 1): ClaimedOutboxMessage {
     occurredAt: new Date("2026-07-12T00:00:00.000Z"),
     payload: { ignoredByLogs: "sensitive" },
     schemaVersion: 1,
-    workspace: context().workspace
+    scope: context().scope
   };
 }
 

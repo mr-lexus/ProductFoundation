@@ -41,10 +41,11 @@ adapter. Бизнес-код остаётся plain TypeScript.
 Внутри capability:
 
 ```text
-transport → application → domain
+transport/infrastructure → application → domain
 ```
 
 - `transport` знает NestJS/RPC;
+- `infrastructure` реализует product repository и integration ports;
 - `application` координирует permissions, repositories и transaction;
 - `domain` содержит чистые правила и invariants.
 
@@ -65,13 +66,13 @@ scale, security boundary, отдельный owner или другой lifecycle
 PostgreSQL — source of truth. `backend-postgres` владеет pool, transaction
 mechanics, migration runner, idempotency и outbox primitives.
 
-Product tables и repositories принадлежат capability. Tenant-owned access всегда
-получает явный workspace scope. Изменение state и outbox event записываются одной
-транзакцией.
+Product tables и repositories принадлежат capability. `DATA_SCOPE_MODE` выбирает
+global transaction ports либо tenant-only runner с явным `TenantScope`. Изменение
+state и outbox event записываются одной транзакцией.
 
-Foundation migrations используют namespace `foundation`. Product migrations
-используют другой стабильный namespace и никогда не редактируют уже применённый
-SQL.
+Foundation migrations используют namespace `foundation`. Product migrations уже
+имеют каталог `apps/api/migrations`, используют другой стабильный namespace и
+никогда не редактируют применённый SQL.
 
 ## Security и operations
 

@@ -1,20 +1,6 @@
-import type {
-  RpcErrorCode,
-  RpcErrorResponse
-} from "@product-foundation/rpc";
+import type { RpcErrorCode, RpcErrorResponse } from "@product-foundation/rpc";
 
-export type RpcHttpStatus =
-  | 200
-  | 400
-  | 401
-  | 403
-  | 404
-  | 409
-  | 413
-  | 415
-  | 422
-  | 429
-  | 500;
+export type RpcHttpStatus = 200 | 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500;
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -29,9 +15,7 @@ export function createRpcErrorResponse(
   return {
     ok: false,
     error:
-      details === undefined
-        ? { code, message, retryable }
-        : { code, details, message, retryable },
+      details === undefined ? { code, message, retryable } : { code, details, message, retryable },
     meta: { requestId }
   };
 }

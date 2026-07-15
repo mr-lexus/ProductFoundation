@@ -1,33 +1,18 @@
 import { z } from "zod";
 
-const DEFAULT_CORS_ORIGINS = [
-  "http://127.0.0.1:1420",
-  "http://localhost:1420"
-] as const;
+const DEFAULT_CORS_ORIGINS = ["http://127.0.0.1:1420", "http://localhost:1420"] as const;
 
-const runtimeEnvironmentSchema = z.enum([
-  "development",
-  "test",
-  "production"
-]);
+const runtimeEnvironmentSchema = z.enum(["development", "test", "production"]);
 
 const positiveIntegerSchema = z.coerce.number().int().positive();
-const booleanStringSchema = z
-  .enum(["true", "false"])
-  .transform((value) => value === "true");
-const logLevelSchema = z.enum([
-  "fatal",
-  "error",
-  "warn",
-  "info",
-  "debug",
-  "trace",
-  "silent"
-]);
+const booleanStringSchema = z.enum(["true", "false"]).transform((value) => value === "true");
+const logLevelSchema = z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]);
+const migrationNamespaceSchema = z.string().regex(/^[a-z0-9][a-z0-9_-]{0,62}$/);
 
 const environmentSchema = z
   .object({
     CORS_ORIGINS: z.string().optional(),
+    DATA_SCOPE_MODE: z.enum(["global", "tenant"]).default("global"),
     DATABASE_CONNECTION_TIMEOUT_MS: positiveIntegerSchema.default(5_000),
     DATABASE_POOL_MAX: positiveIntegerSchema.default(10),
     DATABASE_URL: z.string().url().optional(),
@@ -35,12 +20,18 @@ const environmentSchema = z
     MAX_RPC_BODY_BYTES: positiveIntegerSchema.default(1_048_576),
     NODE_ENV: runtimeEnvironmentSchema.default("development"),
     PORT: positiveIntegerSchema.default(3_001),
+    PRODUCT_MIGRATION_NAMESPACE: migrationNamespaceSchema.default("app"),
     RATE_LIMIT_MAX: positiveIntegerSchema.default(300),
     RATE_LIMIT_WINDOW_MS: positiveIntegerSchema.default(60_000),
     TRUST_PROXY: booleanStringSchema.default("false"),
     WORKER_BATCH_SIZE: positiveIntegerSchema.default(50),
+    WORKER_CLEANUP_BATCH_SIZE: positiveIntegerSchema.default(500),
+    WORKER_DEAD_LETTER_RETENTION_MS: positiveIntegerSchema.default(2_592_000_000),
     WORKER_LEASE_MS: positiveIntegerSchema.default(30_000),
+    WORKER_MAINTENANCE_INTERVAL_MS: positiveIntegerSchema.default(30_000),
     WORKER_MAX_ATTEMPTS: positiveIntegerSchema.default(10),
+    WORKER_METRICS_PORT: positiveIntegerSchema.default(9_464),
+    WORKER_PROCESSED_RETENTION_MS: positiveIntegerSchema.default(604_800_000),
     WORKER_POLL_INTERVAL_MS: positiveIntegerSchema.default(1_000)
   })
   .superRefine((value, context) => {
@@ -65,10 +56,12 @@ export interface DatabaseRuntimeConfig {
 
 export interface ApiRuntimeConfig {
   readonly corsOrigins: readonly string[];
+  readonly dataScopeMode: "global" | "tenant";
   readonly database?: DatabaseRuntimeConfig;
   readonly environment: z.infer<typeof runtimeEnvironmentSchema>;
   readonly logLevel: z.infer<typeof logLevelSchema>;
   readonly maxRpcBodyBytes: number;
+  readonly migrationNamespace: string;
   readonly port: number;
   readonly rateLimit: {
     readonly max: number;
@@ -77,9 +70,7 @@ export interface ApiRuntimeConfig {
   readonly trustProxy: boolean;
 }
 
-export function parseRuntimeEnvironment(
-  environment: NodeJS.ProcessEnv = process.env
-) {
+export function parseRuntimeEnvironment(environment: NodeJS.ProcessEnv = process.env) {
   return environmentSchema.parse(environment);
 }
 
@@ -101,14 +92,10 @@ function parseCorsOrigins(rawOrigins: string | undefined) {
     .map((origin) => origin.trim())
     .filter((origin) => origin.length > 0);
 
-  return origins === undefined || origins.length === 0
-    ? DEFAULT_CORS_ORIGINS
-    : origins;
+  return origins === undefined || origins.length === 0 ? DEFAULT_CORS_ORIGINS : origins;
 }
 
-export function loadApiConfig(
-  environment: NodeJS.ProcessEnv = process.env
-): ApiRuntimeConfig {
+export function loadApiConfig(environment: NodeJS.ProcessEnv = process.env): ApiRuntimeConfig {
   const parsed = parseRuntimeEnvironment(environment);
   const database = databaseConfigFromParsedEnvironment(parsed);
 
@@ -121,10 +108,12 @@ export function loadApiConfig(
 
   return {
     corsOrigins: parseCorsOrigins(parsed.CORS_ORIGINS),
+    dataScopeMode: parsed.DATA_SCOPE_MODE,
     ...(database === undefined ? {} : { database }),
     environment: parsed.NODE_ENV,
     logLevel: parsed.LOG_LEVEL,
     maxRpcBodyBytes: parsed.MAX_RPC_BODY_BYTES,
+    migrationNamespace: parsed.PRODUCT_MIGRATION_NAMESPACE,
     port: parsed.PORT,
     rateLimit: {
       max: parsed.RATE_LIMIT_MAX,

@@ -2,27 +2,16 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createRpcSuccessResponseSchema,
-  systemPingRpcContract,
-  rpcErrorResponseSchema
+  rpcErrorResponseSchema,
+  systemPingRpcContract
 } from "@app/contracts";
-import type {
-  FastifyInstance,
-  InjectOptions
-} from "fastify";
+import type { FastifyInstance, InjectOptions } from "fastify";
+import { type ApiRuntimeConfig, loadApiConfig } from "../config/load-api-config.js";
 import { createNestApplication } from "../create-nest-application.js";
-import {
-  loadApiConfig,
-  type ApiRuntimeConfig
-} from "../config/load-api-config.js";
 
-type TestConfigOverrides = Partial<
-  Pick<ApiRuntimeConfig, "corsOrigins" | "maxRpcBodyBytes">
->;
+type TestConfigOverrides = Partial<Pick<ApiRuntimeConfig, "corsOrigins" | "maxRpcBodyBytes">>;
 
-async function inject(
-  options: InjectOptions,
-  overrides: TestConfigOverrides = {}
-) {
+async function inject(options: InjectOptions, overrides: TestConfigOverrides = {}) {
   const config = {
     ...loadApiConfig({ NODE_ENV: "test" }),
     ...overrides
@@ -33,9 +22,7 @@ async function inject(
   await application.init();
 
   try {
-    const fastify = application
-      .getHttpAdapter()
-      .getInstance() as FastifyInstance;
+    const fastify = application.getHttpAdapter().getInstance() as FastifyInstance;
 
     return await fastify.inject(options);
   } finally {
@@ -58,13 +45,11 @@ test("NestJS RPC success uses the versioned contract envelope", async () => {
   assert.equal(response.headers["x-request-id"], "test-request-1");
   assert.equal(response.headers["x-content-type-options"], "nosniff");
 
-  const schema = createRpcSuccessResponseSchema(
-    systemPingRpcContract.outputSchema
-  );
+  const schema = createRpcSuccessResponseSchema(systemPingRpcContract.outputSchema);
   const payload = schema.parse(response.json());
 
   assert.equal(payload.data.platform, "web");
-  assert.equal(payload.data.template, "product-foundation-starter");
+  assert.equal(payload.data.status, "ready");
   assert.equal(payload.meta.requestId, "test-request-1");
 });
 
@@ -81,6 +66,40 @@ test("NestJS RPC validation failures use the typed error envelope", async () => 
 
   assert.equal(payload.error.code, "BAD_REQUEST");
   assert.equal(payload.error.retryable, false);
+});
+
+test("NestJS uses one generated request ID when the incoming ID is invalid", async () => {
+  const response = await inject({
+    headers: {
+      "content-type": "application/json",
+      "x-request-id": "invalid request id"
+    },
+    method: "POST",
+    payload: { platform: "web" },
+    url: systemPingRpcContract.path
+  });
+  const payload = createRpcSuccessResponseSchema(systemPingRpcContract.outputSchema).parse(
+    response.json()
+  );
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["x-request-id"], payload.meta.requestId);
+  assert.notEqual(payload.meta.requestId, "invalid request id");
+});
+
+test("NestJS permits authorization headers in CORS preflight", async () => {
+  const response = await inject({
+    headers: {
+      "access-control-request-headers": "authorization,content-type",
+      "access-control-request-method": "POST",
+      origin: "http://localhost:1420"
+    },
+    method: "OPTIONS",
+    url: systemPingRpcContract.path
+  });
+
+  assert.equal(response.statusCode, 204);
+  assert.match(response.headers["access-control-allow-headers"] ?? "", /Authorization/i);
 });
 
 test("NestJS maps Fastify parser errors to the RPC envelope", async () => {
@@ -145,14 +164,11 @@ test("NestJS exposes liveness and readiness probes", async () => {
 });
 
 test("NestJS exposes Prometheus metrics without response bodies", async () => {
-  const application = await createNestApplication(
-    loadApiConfig({ NODE_ENV: "test" }),
-    { logger: false }
-  );
+  const application = await createNestApplication(loadApiConfig({ NODE_ENV: "test" }), {
+    logger: false
+  });
   await application.init();
-  const fastify = application
-    .getHttpAdapter()
-    .getInstance() as FastifyInstance;
+  const fastify = application.getHttpAdapter().getInstance() as FastifyInstance;
 
   await fastify.inject({ method: "GET", url: "/health/live" });
   const response = await fastify.inject({ method: "GET", url: "/metrics" });
@@ -192,10 +208,7 @@ test("API runtime config validates numeric values", () => {
     PORT: "4000"
   });
 
-  assert.deepEqual(config.corsOrigins, [
-    "https://app.example.com",
-    "https://desktop.example.com"
-  ]);
+  assert.deepEqual(config.corsOrigins, ["https://app.example.com", "https://desktop.example.com"]);
   assert.equal(config.maxRpcBodyBytes, 2048);
   assert.equal(config.port, 4000);
   assert.throws(() => loadApiConfig({ PORT: "not-a-port" }));

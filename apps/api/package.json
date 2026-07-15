@@ -7,7 +7,8 @@
     ".": "./dist/index.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "migrations"
   ],
   "scripts": {
     "build:dependencies": "pnpm --filter @app/contracts build && pnpm --filter @product-foundation/backend-postgres build && pnpm --filter @product-foundation/rpc-server build",
@@ -19,7 +20,7 @@
     "worker": "node --enable-source-maps dist/worker.js",
     "worker:dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx src/worker.ts",
     "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts"
+    "test": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",
@@ -38,7 +39,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "^24.0.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0"
   }

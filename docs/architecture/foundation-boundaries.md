@@ -11,7 +11,7 @@
 | `rpc` | protocol, envelopes, errors, procedure definition |
 | `rpc-client` | fetch, cancellation, output validation |
 | `rpc-server` | input/output validation и handler execution |
-| `backend-core` | auth/tenant ports, transactions, outbox worker |
+| `backend-core` | auth/scope ports, idempotency and outbox orchestration |
 | `backend-postgres` | `pg` adapters и foundation migrations |
 | `config` | общие tooling presets |
 

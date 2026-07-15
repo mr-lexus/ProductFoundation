@@ -1,4 +1,4 @@
-import { z, type ZodSchema } from "zod";
+import { type ZodSchema, z } from "zod";
 
 export const rpcProcedureKindSchema = z.enum(["query", "mutation"]);
 

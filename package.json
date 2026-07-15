@@ -3,11 +3,12 @@
   "private": true,
   "packageManager": "pnpm@11.7.0",
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=24.0.0 <25.0.0"
   },
   "scripts": {
     "workspace:status": "echo Product Foundation Starter workspace is ready",
     "dev:api": "pnpm --filter @app/api dev",
+    "dev:desktop:frontend": "node scripts/run-frontend-platform.mjs desktop dev --host 127.0.0.1 --port 1420",
     "dev:web": "pnpm --filter @app/web dev",
     "dev:demo": "concurrently -k -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
     "db:migrate": "pnpm --filter @app/api migrate",
@@ -16,8 +17,11 @@
     "build:contracts": "pnpm build:foundation && pnpm --filter @app/contracts build",
     "build:api": "pnpm --filter @app/api build",
     "build:web": "pnpm --filter @app/web build",
+    "build:mobile": "pnpm --filter @app/mobile build",
+    "build:desktop:frontend": "node scripts/run-frontend-platform.mjs desktop build",
     "build": "pnpm build:contracts && pnpm build:api && pnpm build:web",
     "smoke:api": "node scripts/smoke-production-api.mjs",
+    "smoke:compose": "node scripts/smoke-compose.mjs",
     "preview:web": "pnpm --filter @app/web preview",
     "tauri:dev": "pnpm --filter @app/desktop dev",
     "tauri:build": "pnpm --filter @app/desktop build",
@@ -27,11 +31,15 @@
     "cap:open:android": "pnpm --filter @app/mobile cap:open:android",
     "cap:open:ios": "pnpm --filter @app/mobile cap:open:ios",
     "check:architecture": "node scripts/check-architecture.mjs",
-    "check:types": "pnpm build:contracts && pnpm --filter @product-foundation/rpc check && pnpm --filter @product-foundation/rpc-client check && pnpm --filter @product-foundation/rpc-server check && pnpm --filter @product-foundation/backend-core check && pnpm --filter @product-foundation/backend-postgres check && pnpm --filter @app/contracts check && pnpm --filter @app/frontend-app check && pnpm --filter @app/web check && pnpm --filter @app/api check",
-    "test": "pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/api test",
-    "check": "pnpm check:architecture && pnpm check:types && pnpm test"
+    "check:static": "biome check .",
+    "check:types": "pnpm build:contracts && pnpm --filter @product-foundation/rpc check && pnpm --filter @product-foundation/rpc-client check && pnpm --filter @product-foundation/rpc-server check && pnpm --filter @product-foundation/backend-core check && pnpm --filter @product-foundation/backend-postgres check && pnpm --filter @app/contracts check && pnpm --filter @app/frontend-app check && pnpm --filter @app/web check && pnpm --filter @app/mobile check && pnpm --filter @app/api check",
+    "check:native": "pnpm --filter @app/mobile check && pnpm --filter @app/desktop check",
+    "format": "biome check --write .",
+    "test": "pnpm --filter @product-foundation/rpc-client test && pnpm --filter @product-foundation/rpc-server test && pnpm --filter @product-foundation/backend-core test && pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/api test",
+    "check": "pnpm check:static && pnpm check:architecture && pnpm check:types && pnpm test"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.3",
     "concurrently": "^9.0.0"
   }
 }

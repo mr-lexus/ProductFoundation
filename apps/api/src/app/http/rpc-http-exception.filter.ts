@@ -1,22 +1,13 @@
 import {
-  Catch,
-  HttpException,
-  Inject,
   type ArgumentsHost,
-  type ExceptionFilter
+  Catch,
+  type ExceptionFilter,
+  HttpException,
+  Inject
 } from "@nestjs/common";
 import { HttpAdapterHost } from "@nestjs/core";
-import {
-  createRpcErrorResponse,
-  getRpcHttpErrorDefinition,
-  resolveRequestId
-} from "@product-foundation/rpc-server";
-
-interface HttpRequestLike {
-  readonly headers?: Readonly<Record<string, string | string[] | undefined>>;
-  readonly originalUrl?: string;
-  readonly url?: string;
-}
+import { createRpcErrorResponse, getRpcHttpErrorDefinition } from "@product-foundation/rpc-server";
+import type { FastifyRequest } from "fastify";
 
 function resolveHttpStatus(exception: unknown) {
   if (exception instanceof HttpException) {
@@ -35,10 +26,6 @@ function resolveHttpStatus(exception: unknown) {
   return 500;
 }
 
-function firstHeader(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
-
 @Catch()
 export class RpcHttpExceptionFilter implements ExceptionFilter {
   constructor(
@@ -48,27 +35,22 @@ export class RpcHttpExceptionFilter implements ExceptionFilter {
 
   catch(exception: unknown, host: ArgumentsHost) {
     const http = host.switchToHttp();
-    const request = http.getRequest<HttpRequestLike>();
+    const request = http.getRequest<FastifyRequest>();
     const response = http.getResponse();
     const status = resolveHttpStatus(exception);
     const definition = getRpcHttpErrorDefinition(status);
-    const requestId = resolveRequestId(
-      firstHeader(request.headers?.["x-request-id"])
-    );
-    const url = request.originalUrl ?? request.url ?? "";
+    const requestId = request.id;
+    const url = request.url;
     const { httpAdapter } = this.adapterHost;
 
     if (status >= 500) {
-      process.stderr.write(
-        `${JSON.stringify({
+      request.log.error(
+        {
           errorName: exception instanceof Error ? exception.name : "UnknownError",
           event: "http_request_failed",
-          level: "error",
-          message:
-            exception instanceof Error ? exception.message : "Unknown error",
-          requestId,
-          url
-        })}\n`
+          requestId
+        },
+        "HTTP request failed"
       );
     }
 

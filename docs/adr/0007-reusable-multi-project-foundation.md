@@ -21,7 +21,7 @@ The initial foundation packages are:
 - `rpc` — protocol contracts and envelopes;
 - `rpc-client` — fetch/cancellation/typed client errors;
 - `rpc-server` — validation and framework-neutral procedure execution;
-- `backend-core` — application ports, tenant/security context and durable
+- `backend-core` — application ports, global/tenant scope and durable
   orchestration;
 - `backend-postgres` — `pg` adapters, migration runner and platform migrations;
 - `config` — tooling presets.

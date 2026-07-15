@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import { createSystemPingViewModel } from "./create-system-ping-view-model";
-import { pingSystem } from "../../../shared/api/system/ping-system";
 import { queryKeys } from "../../../shared/api/query-keys";
+import { pingSystem } from "../../../shared/api/system/ping-system";
 import type { FrontendPlatformConfig } from "../../../shared/config/platform";
+import { createSystemPingViewModel } from "./create-system-ping-view-model";
 
 export function useSystemPingQuery(platform: FrontendPlatformConfig) {
   return useQuery({

@@ -4,14 +4,20 @@
   "version": "0.0.0",
   "identifier": "com.example.product.desktop",
   "build": {
-    "beforeBuildCommand": "pnpm --filter @app/web build",
-    "beforeDevCommand": "pnpm --filter @app/web dev -- --host 127.0.0.1 --port 1420",
+    "beforeBuildCommand": {
+      "cwd": "../../..",
+      "script": "pnpm build:desktop:frontend"
+    },
+    "beforeDevCommand": {
+      "cwd": "../../..",
+      "script": "pnpm dev:desktop:frontend"
+    },
     "devUrl": "http://127.0.0.1:1420",
     "frontendDist": "../../web/dist"
   },
   "app": {
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ipc: http://ipc.localhost; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "windows": [
       {

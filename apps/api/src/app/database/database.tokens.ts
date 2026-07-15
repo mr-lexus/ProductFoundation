@@ -1,4 +1,6 @@
 export const DATABASE_HEALTH = Symbol("DATABASE_HEALTH");
+export const IDEMPOTENCY_STORE = Symbol("IDEMPOTENCY_STORE");
+export const OUTBOX_STORE = Symbol("OUTBOX_STORE");
 export const SQL_EXECUTOR = Symbol("SQL_EXECUTOR");
 export const TRANSACTION_RUNNER = Symbol("TRANSACTION_RUNNER");
 export const TENANT_TRANSACTION_RUNNER = Symbol("TENANT_TRANSACTION_RUNNER");

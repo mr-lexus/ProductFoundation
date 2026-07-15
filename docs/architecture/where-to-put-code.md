@@ -8,7 +8,7 @@
 | Nest controller/DI | `apps/api/src/modules/<capability>/transport` |
 | Runtime config/bootstrap/health | `apps/api/src/app` |
 | Product repository implementation | capability infrastructure, за application port |
-| Product SQL migration | отдельная product migration directory |
+| Product SQL migration | `apps/api/migrations` |
 | React page | `packages/frontend-app/src/pages` |
 | User action/workflow | `packages/frontend-app/src/features` |
 | Product model | `packages/frontend-app/src/entities` |
@@ -19,6 +19,7 @@
 | Tauri integration | `apps/desktop` |
 | Product-neutral backend port | `packages/backend-core` только при реальном повторном использовании |
 | PostgreSQL foundation adapter | `packages/backend-postgres` |
+| Product repository adapter | `apps/api/src/modules/<name>/infrastructure` |
 | Архитектурное решение | `docs/adr` |
 
 ## Быстрая проверка

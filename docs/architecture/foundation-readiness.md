@@ -2,32 +2,41 @@
 
 ## Статус
 
-Болванка готова для копирования и начала продуктовой разработки. Она не содержит
-готовую дизайн-систему, identity provider или предметную область.
+Foundation готов к копированию после прохождения acceptance-команд ниже. Он не
+содержит предметную область, identity provider или дизайн-систему.
 
-## Проверяемые возможности
+## Что гарантирует foundation
 
-- architecture gate для всех `apps` и `packages`;
-- native ESM build foundation contracts и API;
-- NestJS 11 + Fastify 5;
-- versioned contract-first RPC с runtime validation;
-- PostgreSQL 17 migrations с checksum, advisory lock и namespaces;
-- transactions, tenant context, deny-by-default authorization boundary;
-- idempotency ledger, transactional outbox и отдельный worker;
-- security headers, CORS, body/rate limits и redacted structured logs;
-- liveness, readiness, Prometheus metrics и graceful shutdown;
-- production web/API build, Docker image, Compose и CI.
+- product-neutral package ownership и автоматические architecture boundaries;
+- Node.js 24 reproducible workspace и deterministic formatting/linting;
+- NestJS 11 + Fastify 5, native ESM и versioned contract-first RPC;
+- обязательную durable idempotency каждой mutation;
+- PostgreSQL 17 transactions, namespaced migrations и product migration slot;
+- global/tenant scope mode и deny-by-default authorization port;
+- transactional outbox с lease ownership, retry, dead letters и retention;
+- API/worker health, Prometheus metrics и safe structured diagnostics;
+- реальные web/mobile/desktop build contexts и Tauri CSP;
+- Docker image, full Compose smoke и CI platform-shell job.
 
-## Осознанно не выбрано
+## Acceptance
 
-Следующие решения принимает конкретный продукт:
+```bash
+pnpm install --frozen-lockfile
+pnpm check
+pnpm build
+pnpm smoke:api
+pnpm smoke:compose
+pnpm check:native
+```
 
-- identity provider и session/token model;
-- permission vocabulary;
-- product database schema;
-- дизайн-система и UI;
-- search, realtime, queue и object storage providers;
-- deployment platform и telemetry exporter.
+`check:native` требует локальный Rust/Tauri toolchain. CI устанавливает Linux
+system dependencies и дополнительно выполняет Tauri build без bundling.
 
-Добавлять Redis, отдельные сервисы, CRDT или внешний search заранее запрещено:
-сначала должна появиться измеренная необходимость и ADR.
+## Что выбирает продукт
+
+- identity/session provider и permission vocabulary;
+- `global` или `tenant` data scope;
+- product schema и business modules;
+- design system и UI;
+- object storage, search, realtime и external integrations;
+- deployment platform, secrets and telemetry exporter.

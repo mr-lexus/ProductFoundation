@@ -1,7 +1,7 @@
 import { createSystemPingViewModel } from "../../../features/system-ping";
-import { createSystemStatusPanel } from "../../../widgets/system-status-panel";
 import { pingSystem } from "../../../shared/api/system/ping-system";
 import type { FrontendPlatformConfig } from "../../../shared/config/platform";
+import { createSystemStatusPanel } from "../../../widgets/system-status-panel";
 
 export async function createFoundationStatusPage(
   platform: FrontendPlatformConfig

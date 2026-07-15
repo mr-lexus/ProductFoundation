@@ -1,17 +1,22 @@
 import {
+  type DynamicModule,
   Inject,
   Injectable,
   Module,
-  type DynamicModule,
   type OnApplicationShutdown
 } from "@nestjs/common";
-import type { DatabaseRuntimeConfig } from "../config/load-api-config.js";
+import type { SqlExecutor, TransactionRunner } from "@product-foundation/backend-core";
 import {
   PostgresDatabase,
+  PostgresIdempotencyStore,
+  PostgresOutboxStore,
   PostgresTenantTransactionRunner
 } from "@product-foundation/backend-postgres";
+import type { DatabaseRuntimeConfig } from "../config/load-api-config.js";
 import {
   DATABASE_HEALTH,
+  IDEMPOTENCY_STORE,
+  OUTBOX_STORE,
   SQL_EXECUTOR,
   TENANT_TRANSACTION_RUNNER,
   TRANSACTION_RUNNER
@@ -32,15 +37,22 @@ class DatabaseLifecycle implements OnApplicationShutdown {
 }
 
 @Module({})
+// biome-ignore lint/complexity/noStaticOnlyClass: NestJS dynamic modules are class-based.
 export class DatabaseModule {
-  static register(config: DatabaseRuntimeConfig): DynamicModule {
+  static register(
+    config: DatabaseRuntimeConfig,
+    dataScopeMode: "global" | "tenant"
+  ): DynamicModule {
     return {
       exports: [
         DATABASE_HEALTH,
-        SQL_EXECUTOR,
-        TENANT_TRANSACTION_RUNNER,
-        TRANSACTION_RUNNER
+        IDEMPOTENCY_STORE,
+        OUTBOX_STORE,
+        ...(dataScopeMode === "tenant"
+          ? [TENANT_TRANSACTION_RUNNER]
+          : [SQL_EXECUTOR, TRANSACTION_RUNNER])
       ],
+      global: true,
       module: DatabaseModule,
       providers: [
         {
@@ -52,9 +64,9 @@ export class DatabaseModule {
               onUnexpectedPoolError: (error) => {
                 process.stderr.write(
                   `${JSON.stringify({
+                    errorName: error.name,
                     event: "postgres_pool_error",
-                    level: "error",
-                    message: error.message
+                    level: "error"
                   })}\n`
                 );
               },
@@ -72,6 +84,18 @@ export class DatabaseModule {
         {
           provide: TRANSACTION_RUNNER,
           useExisting: POSTGRES_DATABASE
+        },
+        {
+          inject: [SQL_EXECUTOR, TRANSACTION_RUNNER],
+          provide: IDEMPOTENCY_STORE,
+          useFactory: (sql: SqlExecutor, transactions: TransactionRunner) =>
+            new PostgresIdempotencyStore(sql, transactions)
+        },
+        {
+          inject: [SQL_EXECUTOR, TRANSACTION_RUNNER],
+          provide: OUTBOX_STORE,
+          useFactory: (sql: SqlExecutor, transactions: TransactionRunner) =>
+            new PostgresOutboxStore(sql, transactions)
         },
         {
           inject: [TRANSACTION_RUNNER],

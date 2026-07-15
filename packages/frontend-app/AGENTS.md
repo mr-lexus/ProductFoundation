@@ -162,7 +162,7 @@ Examples:
 
 ```txt
 user
-workspace
+organization
 document
 subscription
 ```
