@@ -23,6 +23,7 @@ export class PostgresTenantTransactionRunner implements TenantTransactionRunner 
     options?: TransactionOptions
   ) {
     return this.transactions.run(async (transaction) => {
+      await transaction.query("SET LOCAL row_security = on");
       await transaction.query("SELECT set_config('app.tenant_id', $1, true)", [scope.tenantId]);
       return work(scopeExecutor(transaction, scope));
     }, options);

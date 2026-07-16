@@ -6,6 +6,7 @@ import { PostgresDatabase } from "./postgres-database.js";
 import { PostgresIdempotencyStore } from "./postgres-idempotency-store.js";
 import { PostgresOutboxStore } from "./postgres-outbox-store.js";
 import { runSqlMigrations } from "./run-sql-migrations.js";
+import { assertTenantRelationsSecure } from "./tenant-isolation.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationTest = databaseUrl === undefined ? test.skip : test;
@@ -39,6 +40,30 @@ integrationTest(
         )
       `);
       await database.query("TRUNCATE TABLE platform.architecture_transaction_probe");
+      await database.query("DROP TABLE IF EXISTS platform.tenant_isolation_probe");
+      await database.query(`
+        CREATE TABLE platform.tenant_isolation_probe (
+          id uuid PRIMARY KEY,
+          tenant_id uuid NOT NULL
+        )
+      `);
+      await assert.rejects(
+        assertTenantRelationsSecure(database, [
+          { schema: "platform", table: "tenant_isolation_probe" }
+        ]),
+        /must enable and force RLS/
+      );
+      await database.query("ALTER TABLE platform.tenant_isolation_probe ENABLE ROW LEVEL SECURITY");
+      await database.query("ALTER TABLE platform.tenant_isolation_probe FORCE ROW LEVEL SECURITY");
+      await database.query(`
+        CREATE POLICY tenant_isolation_probe_scope
+        ON platform.tenant_isolation_probe
+        USING (tenant_id = current_setting('app.tenant_id', true)::uuid)
+        WITH CHECK (tenant_id = current_setting('app.tenant_id', true)::uuid)
+      `);
+      await assertTenantRelationsSecure(database, [
+        { schema: "platform", table: "tenant_isolation_probe" }
+      ]);
 
       await assert.rejects(
         database.run(async (transaction) => {
@@ -75,7 +100,7 @@ integrationTest(
       `);
       assert.equal(migrationJournal.rows[0]?.count, "2");
 
-      const idempotency = new PostgresIdempotencyStore(database, database);
+      const idempotency = new PostgresIdempotencyStore(database);
       const firstOwner = { ownerId: crypto.randomUUID() };
       const idempotencyKey = {
         key: `test-${crypto.randomUUID()}`,
@@ -84,24 +109,47 @@ integrationTest(
         scope: globalScope
       };
 
+      const mutationRowId = crypto.randomUUID();
       assert.deepEqual(
-        await idempotency.claim(idempotencyKey, {
-          ...firstOwner,
-          leaseMs: 30_000,
-          ttlMs: 60_000
-        }),
-        { kind: "acquired" }
+        await idempotency.runAtomically(
+          idempotencyKey,
+          {
+            ...firstOwner,
+            leaseMs: 30_000,
+            ttlMs: 60_000
+          },
+          async (transaction) => {
+            await transaction.query(
+              "INSERT INTO platform.architecture_transaction_probe (id) VALUES ($1)",
+              [mutationRowId]
+            );
+            return { body: { ok: true }, status: 200 };
+          }
+        ),
+        {
+          kind: "executed",
+          responseBody: { ok: true },
+          responseStatus: 200
+        }
       );
       assert.deepEqual(
-        await idempotency.claim(idempotencyKey, {
-          ownerId: crypto.randomUUID(),
-          leaseMs: 30_000,
-          ttlMs: 60_000
-        }),
-        { kind: "in_progress" }
+        await idempotency.runAtomically(
+          idempotencyKey,
+          {
+            leaseMs: 30_000,
+            ownerId: crypto.randomUUID(),
+            ttlMs: 60_000
+          },
+          async () => assert.fail("a completed mutation must replay")
+        ),
+        {
+          kind: "replay",
+          responseBody: { ok: true },
+          responseStatus: 200
+        }
       );
       assert.deepEqual(
-        await idempotency.claim(
+        await idempotency.runAtomically(
           {
             ...idempotencyKey,
             requestHash: hashIdempotencyPayload('{"value":2}')
@@ -110,35 +158,53 @@ integrationTest(
             leaseMs: 30_000,
             ownerId: crypto.randomUUID(),
             ttlMs: 60_000
-          }
+          },
+          async () => assert.fail("a conflicting mutation must not execute")
         ),
         { kind: "conflict" }
       );
 
+      const failingKey = {
+        ...idempotencyKey,
+        key: `failure-${crypto.randomUUID()}`
+      };
+      const rolledBackMutationRowId = crypto.randomUUID();
       await assert.rejects(
-        idempotency.complete(
-          idempotencyKey,
-          { ownerId: crypto.randomUUID() },
-          { body: { ok: true }, status: 200 }
+        idempotency.runAtomically(
+          failingKey,
+          {
+            leaseMs: 30_000,
+            ownerId: crypto.randomUUID(),
+            ttlMs: 60_000
+          },
+          async (transaction) => {
+            await transaction.query(
+              "INSERT INTO platform.architecture_transaction_probe (id) VALUES ($1)",
+              [rolledBackMutationRowId]
+            );
+            throw new Error("rollback durable mutation");
+          }
         ),
-        /lost ownership/
+        /rollback durable mutation/
       );
-      await idempotency.complete(idempotencyKey, firstOwner, {
-        body: { ok: true },
-        status: 200
-      });
+      const atomicRows = await database.query<{ id: string }>(
+        `SELECT id::text AS id
+         FROM platform.architecture_transaction_probe
+         WHERE id IN ($1, $2)
+         ORDER BY id`,
+        [mutationRowId, rolledBackMutationRowId]
+      );
       assert.deepEqual(
-        await idempotency.claim(idempotencyKey, {
-          ownerId: crypto.randomUUID(),
-          leaseMs: 30_000,
-          ttlMs: 60_000
-        }),
-        {
-          kind: "replay",
-          responseBody: { ok: true },
-          responseStatus: 200
-        }
+        atomicRows.rows.map((row) => row.id),
+        [mutationRowId]
       );
+      const rolledBackLedger = await database.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM platform.idempotency_records
+         WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3`,
+        ["00000000-0000-0000-0000-000000000000", failingKey.procedureId, failingKey.key]
+      );
+      assert.equal(rolledBackLedger.rows[0]?.count, "0");
 
       const outbox = new PostgresOutboxStore(database, database);
       const eventId = crypto.randomUUID();
@@ -186,6 +252,7 @@ integrationTest(
       );
       assert.equal(delivered.rows[0]?.processed, true);
     } finally {
+      await database.query("DROP TABLE IF EXISTS platform.tenant_isolation_probe");
       await database.query("DROP TABLE IF EXISTS platform.architecture_transaction_probe");
       await database.close();
     }

@@ -40,6 +40,10 @@ export class OutboxWorker {
   ) {}
 
   async runOnce(signal?: AbortSignal) {
+    if (signal?.aborted === true) {
+      return 0;
+    }
+
     const messages = await this.store.claim({
       batchSize: this.options.batchSize,
       leaseMs: this.options.leaseMs,
@@ -47,11 +51,14 @@ export class OutboxWorker {
     });
     this.observer.batchClaimed(messages.length);
 
-    for (const message of messages) {
-      if (signal?.aborted === true) {
-        break;
-      }
-      await this.#deliver(message, signal);
+    const deliveries = await Promise.allSettled(
+      messages.map((message) => this.#deliver(message, signal))
+    );
+    const failures = deliveries
+      .filter((delivery): delivery is PromiseRejectedResult => delivery.status === "rejected")
+      .map((delivery) => delivery.reason);
+    if (failures.length > 0) {
+      throw new AggregateError(failures, "One or more outbox lease updates failed.");
     }
 
     return messages.length;

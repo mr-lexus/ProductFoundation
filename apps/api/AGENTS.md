@@ -327,6 +327,8 @@ Rules:
 * `DATA_SCOPE_MODE=tenant` exports only `TenantTransactionRunner` to product modules
 * every tenant-owned repository method accepts an explicit `TenantScope`
 * state changes and their outbox messages share one transaction
+* RPC mutation handlers use the transaction supplied by the durable invoker;
+  they do not open a nested transaction
 * applied SQL migrations are immutable and forward-only
 
 Do not create repository layers before there is real persistence complexity.

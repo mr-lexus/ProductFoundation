@@ -1,8 +1,8 @@
 import type {
-  IdempotencyClaim,
   IdempotencyKey,
   IdempotencyOwnership,
   IdempotencyStore,
+  IdempotencyStoreResult,
   SqlExecutor,
   TransactionRunner
 } from "@product-foundation/backend-core";
@@ -21,19 +21,26 @@ function parameters(key: IdempotencyKey) {
 }
 
 export class PostgresIdempotencyStore implements IdempotencyStore {
-  constructor(
-    private readonly sql: SqlExecutor,
-    private readonly transactions: TransactionRunner
-  ) {}
+  constructor(private readonly transactions: TransactionRunner) {}
 
-  claim(
+  runAtomically<TBody>(
     key: IdempotencyKey,
     options: IdempotencyOwnership & {
       readonly leaseMs: number;
       readonly ttlMs: number;
-    }
-  ): Promise<IdempotencyClaim> {
+    },
+    execute: (
+      transaction: SqlExecutor
+    ) => Promise<{ readonly body: TBody; readonly status: number }>
+  ): Promise<IdempotencyStoreResult<TBody>> {
     return this.transactions.run(async (transaction) => {
+      await transaction.query(
+        `DELETE FROM platform.idempotency_records
+         WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
+           AND expires_at <= now()
+           AND (state <> 'processing' OR locked_until <= now())`,
+        parameters(key)
+      );
       await transaction.query(
         `WITH expired AS (
            SELECT scope_id, procedure_id, idempotency_key
@@ -42,6 +49,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
              AND (state <> 'processing' OR locked_until <= now())
            ORDER BY expires_at
            LIMIT 100
+           FOR UPDATE SKIP LOCKED
          )
          DELETE FROM platform.idempotency_records AS record
          USING expired
@@ -62,77 +70,63 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         RETURNING idempotency_key`,
         [...parameters(key), key.requestHash, options.ownerId, options.leaseMs, options.ttlMs]
       );
-      if (inserted.rowCount === 1) {
-        return { kind: "acquired" };
+
+      if (inserted.rowCount !== 1) {
+        const existing = await transaction.query<IdempotencyRow>(
+          `SELECT request_hash, state, response_status, response_body,
+                  COALESCE(locked_until > now(), false) AS lock_active
+           FROM platform.idempotency_records
+           WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
+           FOR UPDATE`,
+          parameters(key)
+        );
+        const record = existing.rows[0];
+        if (record === undefined) {
+          throw new Error("Idempotency record disappeared while acquiring it.");
+        }
+        if (record.request_hash !== key.requestHash) {
+          return { kind: "conflict" };
+        }
+        if (record.state === "completed" && record.response_status !== null) {
+          return {
+            kind: "replay",
+            responseBody: record.response_body as TBody,
+            responseStatus: record.response_status
+          };
+        }
+        if (record.state === "processing" && record.lock_active) {
+          return { kind: "in_progress" };
+        }
+
+        await transaction.query(
+          `UPDATE platform.idempotency_records
+           SET state = 'processing', locked_by = $4,
+               locked_until = now() + ($5 * interval '1 millisecond'),
+               expires_at = now() + ($6 * interval '1 millisecond'),
+               response_status = NULL, response_body = NULL, updated_at = now()
+           WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3`,
+          [...parameters(key), options.ownerId, options.leaseMs, options.ttlMs]
+        );
       }
 
-      const existing = await transaction.query<IdempotencyRow>(
-        `SELECT request_hash, state, response_status, response_body,
-                COALESCE(locked_until > now(), false) AS lock_active
-         FROM platform.idempotency_records
-         WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
-         FOR UPDATE`,
-        parameters(key)
-      );
-      const record = existing.rows[0];
-      if (record === undefined) {
-        throw new Error("Idempotency record disappeared while claiming it.");
-      }
-      if (record.request_hash !== key.requestHash) {
-        return { kind: "conflict" };
-      }
-      if (record.state === "completed" && record.response_status !== null) {
-        return {
-          kind: "replay",
-          responseBody: record.response_body,
-          responseStatus: record.response_status
-        };
-      }
-      if (record.state === "processing" && record.lock_active) {
-        return { kind: "in_progress" };
-      }
-
-      await transaction.query(
+      const response = await execute(transaction);
+      const completed = await transaction.query(
         `UPDATE platform.idempotency_records
-         SET state = 'processing', locked_by = $4,
-             locked_until = now() + ($5 * interval '1 millisecond'),
-             expires_at = now() + ($6 * interval '1 millisecond'),
-             updated_at = now()
-         WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3`,
-        [...parameters(key), options.ownerId, options.leaseMs, options.ttlMs]
+         SET state = 'completed', response_status = $6, response_body = $7,
+             locked_by = NULL, locked_until = NULL, updated_at = now()
+         WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
+           AND request_hash = $4 AND locked_by = $5 AND state = 'processing'`,
+        [...parameters(key), key.requestHash, options.ownerId, response.status, response.body]
       );
-      return { kind: "acquired" };
+      if (completed.rowCount !== 1) {
+        throw new Error("Idempotency completion lost ownership of the record.");
+      }
+
+      return {
+        kind: "executed",
+        responseBody: response.body,
+        responseStatus: response.status
+      };
     });
-  }
-
-  async complete(
-    key: IdempotencyKey,
-    ownership: IdempotencyOwnership,
-    response: { readonly body: unknown; readonly status: number }
-  ) {
-    const result = await this.sql.query(
-      `UPDATE platform.idempotency_records
-       SET state = 'completed', response_status = $6, response_body = $7,
-           locked_by = NULL, locked_until = NULL, updated_at = now()
-       WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
-         AND request_hash = $4 AND locked_by = $5 AND state = 'processing'`,
-      [...parameters(key), key.requestHash, ownership.ownerId, response.status, response.body]
-    );
-    if (result.rowCount !== 1) {
-      throw new Error("Idempotency completion lost ownership of the record.");
-    }
-  }
-
-  async release(key: IdempotencyKey, ownership: IdempotencyOwnership) {
-    const result = await this.sql.query(
-      `UPDATE platform.idempotency_records
-       SET state = 'failed', locked_by = NULL, locked_until = NULL, updated_at = now()
-       WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
-         AND request_hash = $4 AND locked_by = $5 AND state = 'processing'`,
-      [...parameters(key), key.requestHash, ownership.ownerId]
-    );
-    if (result.rowCount !== 1) {
-      throw new Error("Idempotency release lost ownership of the record.");
-    }
   }
 }

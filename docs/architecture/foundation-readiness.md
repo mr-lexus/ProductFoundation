@@ -10,9 +10,10 @@ Foundation готов к копированию после прохождени�
 - product-neutral package ownership и автоматические architecture boundaries;
 - Node.js 24 reproducible workspace и deterministic formatting/linting;
 - NestJS 11 + Fastify 5, native ESM и versioned contract-first RPC;
-- обязательную durable idempotency каждой mutation;
+- атомарную PostgreSQL idempotency: state, outbox и validated result фиксируются
+  одной mutation transaction;
 - PostgreSQL 17 transactions, namespaced migrations и product migration slot;
-- global/tenant scope mode и deny-by-default authorization port;
+- global scope или tenant execution context с обязательным forced-RLS contract;
 - transactional outbox с lease ownership, retry, dead letters и retention;
 - API/worker health, Prometheus metrics и safe structured diagnostics;
 - реальные web/mobile/desktop build contexts и Tauri CSP;

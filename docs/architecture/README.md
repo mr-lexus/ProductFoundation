@@ -1,6 +1,7 @@
 # Architecture documentation
 
-Начните с корневого [`DEVELOPER_GUIDE.md`](../../DEVELOPER_GUIDE.md).
+Начните с корневого [`DEVELOPER_GUIDE.md`](../../DEVELOPER_GUIDE.md) или
+[`DEVELOPER_GUIDE-RU.md`](../../DEVELOPER_GUIDE-RU.md).
 
 - [`target-architecture.md`](./target-architecture.md) — runtimes, dependency flow и data boundaries;
 - [`monorepo-layout.md`](./monorepo-layout.md) — владелец каждого каталога;
@@ -10,6 +11,7 @@
 - [`system-ping-flow.md`](./system-ping-flow.md) — минимальный vertical slice;
 - [`local-development.md`](./local-development.md) — запуск и диагностика;
 - [`environment-contract.md`](./environment-contract.md) — runtime settings;
+- [`tenant-isolation.md`](./tenant-isolation.md) — mandatory RLS and runtime-role contract;
 - [`operations-runbook.md`](./operations-runbook.md) — deploy, rollback и incidents;
 - [`architecture-change-checklist.md`](./architecture-change-checklist.md) — проверка изменений;
 - [`naming-conventions.md`](./naming-conventions.md) — короткие правила именования;

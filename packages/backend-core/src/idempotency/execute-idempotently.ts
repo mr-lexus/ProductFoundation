@@ -1,3 +1,4 @@
+import type { SqlExecutor } from "../ports/database.js";
 import type { OperationScope } from "../security/request-context.js";
 import {
   hashIdempotencyValue,
@@ -26,7 +27,9 @@ export interface IdempotentExecutionResult<TBody> {
 }
 
 export async function executeIdempotently<TBody>(options: {
-  readonly execute: () => Promise<{ readonly body: TBody; readonly status: number }>;
+  readonly execute: (
+    transaction: SqlExecutor
+  ) => Promise<{ readonly body: TBody; readonly status: number }>;
   readonly idempotencyKey: string;
   readonly input: unknown;
   readonly leaseMs: number;
@@ -45,39 +48,32 @@ export async function executeIdempotently<TBody>(options: {
     scope: options.scope
   };
   const ownership = { ownerId: crypto.randomUUID() };
-  const claim = await options.store.claim(key, {
-    ...ownership,
-    leaseMs: options.leaseMs,
-    ttlMs: options.ttlMs
-  });
+  const result = await options.store.runAtomically(
+    key,
+    {
+      ...ownership,
+      leaseMs: options.leaseMs,
+      ttlMs: options.ttlMs
+    },
+    options.execute
+  );
 
-  if (claim.kind === "conflict") {
+  if (result.kind === "conflict") {
     throw new IdempotencyConflictError();
   }
-  if (claim.kind === "in_progress") {
+  if (result.kind === "in_progress") {
     throw new IdempotencyInProgressError();
   }
-  if (claim.kind === "replay") {
+  if (result.kind === "replay") {
     return {
-      body: claim.responseBody as TBody,
+      body: result.responseBody,
       replayed: true,
-      status: claim.responseStatus
+      status: result.responseStatus
     };
   }
-
-  try {
-    const response = await options.execute();
-    await options.store.complete(key, ownership, response);
-    return { ...response, replayed: false };
-  } catch (error) {
-    try {
-      await options.store.release(key, ownership);
-    } catch (releaseError) {
-      throw new AggregateError(
-        [error, releaseError],
-        "Idempotent execution failed and its lease could not be released."
-      );
-    }
-    throw error;
-  }
+  return {
+    body: result.responseBody,
+    replayed: false,
+    status: result.responseStatus
+  };
 }

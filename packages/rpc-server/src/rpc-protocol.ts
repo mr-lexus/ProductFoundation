@@ -1,4 +1,4 @@
-import type { RpcErrorCode, RpcErrorResponse } from "@product-foundation/rpc";
+import type { RpcErrorCode, RpcErrorResponse, RpcJsonValue } from "@product-foundation/rpc";
 
 export type RpcHttpStatus = 200 | 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500;
 
@@ -10,7 +10,7 @@ export function createRpcErrorResponse(
   code: RpcErrorCode,
   message: string,
   retryable: boolean,
-  details?: unknown
+  details?: RpcJsonValue
 ): RpcErrorResponse {
   return {
     ok: false,

@@ -3,7 +3,10 @@
 ## Deployment order
 
 1. Verify CI, backup freshness and restore test status.
-2. Build one immutable image used by migrate, API and worker commands.
+2. Build one immutable image used by migrate, API and worker commands. Give the
+   migration job `MIGRATION_DATABASE_URL`; API and worker receive only the
+   least-privilege `DATABASE_URL`. Tenant runtime roles must be `NOSUPERUSER`
+   and `NOBYPASSRLS`.
 3. Run `node dist/app/database/migrate.js` once. Foundation migrations use the
    `foundation` journal namespace; every product-owned migration set must use a
    separate stable namespace.

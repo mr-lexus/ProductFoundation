@@ -1,3 +1,8 @@
+x-runtime-environment: &runtime-environment
+  CORS_ORIGINS: http://localhost:1420,http://127.0.0.1:1420
+  LOG_LEVEL: info
+  NODE_ENV: production
+
 services:
   database:
     image: postgres:17-alpine
@@ -14,6 +19,7 @@ services:
       - "${DATABASE_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init:/docker-entrypoint-initdb.d:ro
 
   migrate:
     build:
@@ -22,11 +28,9 @@ services:
     depends_on:
       database:
         condition: service_healthy
-    environment: &runtime-environment
-      CORS_ORIGINS: http://localhost:1420,http://127.0.0.1:1420
-      DATABASE_URL: postgresql://app:local_only_password@database:5432/app
-      LOG_LEVEL: info
-      NODE_ENV: production
+    environment:
+      <<: *runtime-environment
+      MIGRATION_DATABASE_URL: postgresql://app:local_only_password@database:5432/app
 
   api:
     build:
@@ -36,7 +40,10 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    environment: *runtime-environment
+    environment:
+      <<: *runtime-environment
+      DATA_SCOPE_MODE: ${DATA_SCOPE_MODE:-global}
+      DATABASE_URL: postgresql://app_runtime:local_runtime_password@database:5432/app
     healthcheck:
       test:
         [
@@ -61,7 +68,9 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
-    environment: *runtime-environment
+    environment:
+      <<: *runtime-environment
+      DATABASE_URL: postgresql://app_runtime:local_runtime_password@database:5432/app
     healthcheck:
       test:
         [

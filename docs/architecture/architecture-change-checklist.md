@@ -15,6 +15,8 @@ Use this checklist in human and AI-agent reviews.
 - Are domain/application files free from NestJS, Fastify and `pg`?
 - Does the product use the correct `DATA_SCOPE_MODE`?
 - Does every tenant-owned repository require `TenantScope`?
+- Does every tenant-owned table enable and force RLS, define a policy, pass
+  `assertTenantRelationsSecure`, and have negative cross-tenant tests?
 - Does the transaction contain the state change and its outbox event?
 - Does every RPC mutation use the durable idempotency invoker?
 - Is the migration forward-only, immutable and expand/contract compatible?

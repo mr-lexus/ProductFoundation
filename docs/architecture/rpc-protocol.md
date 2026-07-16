@@ -25,6 +25,11 @@ Shared frontend никогда не импортирует `AppType` или др
 - Zod input schema;
 - Zod output schema, содержащую только публичный DTO.
 
+Schemas описывают JSON wire values. `Date`, `BigInt`, class instances, circular
+objects и transformations, меняющие значение при повторном parse, запрещены
+runtime-проверкой. Нормализующий transform допустим только когда он стабилен
+после JSON round trip.
+
 HTTP method пока всегда `POST`. Это осознанно упрощает одинаковые клиенты web,
 Capacitor и Tauri. HTTP caching для тяжёлых read models добавляется отдельным
 решением, а не скрыто внутри RPC.
@@ -83,6 +88,10 @@ Handler получает:
 - `AbortSignal`;
 - actor (`kind`, `subjectId`) либо `null` до auth middleware.
 
+Mutation handler дополнительно получает явный
+`context.execution.transaction`; query handler получает обычный transport context
+без database capability.
+
 После введения auth transport создаёт actor, а use case выполняет авторизацию.
 Repositories не читают HTTP headers, Nest execution context или Fastify request.
 
@@ -93,9 +102,14 @@ TanStack Query передаёт `signal` в RPC client, затем в `fetch` и
 transaction boundary для атомарности.
 
 Автоматический retry допустим только для queries и idempotent mutations. Каждая
-mutation требует `x-idempotency-key` и durable handler invoker. Ledger хранит
-scope, payload hash, owner token, lease и успешный output; повтор с тем же
-payload возвращает сохранённый результат.
+mutation требует `x-idempotency-key` и durable handler invoker. Handler получает
+executor через `context.execution.transaction`. Product state, outbox messages,
+schema-validated response и idempotency completion фиксируются одной PostgreSQL
+transaction; ошибка откатывает их вместе. Повтор с тем же payload возвращает
+сохранённый результат.
+
+Внешние effects не выполняются внутри mutation transaction. Mutation записывает
+outbox event, а идемпотентный worker handler выполняет effect.
 
 Синхронная mutation должна завершаться внутри своего lease. Длительные операции
 ставятся в transactional outbox и продолжаются worker-ом с отдельной политикой

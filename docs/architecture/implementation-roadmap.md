@@ -18,7 +18,7 @@ design system создаются после копирования репози�
 
 - versioned contract-first RPC и Zod runtime validation;
 - единый request ID, typed errors и cancellation;
-- durable invoker обязателен для каждой RPC mutation;
+- durable invoker обязателен для каждой RPC mutation и валидирует output до commit;
 - отдельный `web | mobile | desktop` build context общего frontend;
 - same-origin web API, обязательный native API URL и Tauri CSP.
 
@@ -27,8 +27,9 @@ design system создаются после копирования репози�
 - PostgreSQL pool, transactions и readiness;
 - foundation + готовый product migration namespace/directory;
 - `global | tenant` operation scope без фиктивных tenants;
-- idempotency payload hash, lease ownership, replay и cleanup;
-- transactional outbox, ownership checks, retry/dead-letter и retention;
+- atomic idempotency transaction для state, outbox и validated response;
+- transactional outbox, concurrent claim delivery, ownership checks,
+  retry/dead-letter и retention;
 - worker health, Prometheus metrics и graceful shutdown.
 
 ### Delivery

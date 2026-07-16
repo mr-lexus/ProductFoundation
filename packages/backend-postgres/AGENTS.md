@@ -11,6 +11,10 @@ Allowed here:
 - outbox inspection and retention cleanup;
 - migration runner and product-neutral platform tables.
 
+Tenant-owned product tables must enable and force PostgreSQL row-level security,
+define an explicit policy based on transaction-local `app.tenant_id`, and be
+registered in product startup/tests through `assertTenantRelationsSecure`.
+
 Forbidden here:
 
 - product tables or product-domain vocabulary;

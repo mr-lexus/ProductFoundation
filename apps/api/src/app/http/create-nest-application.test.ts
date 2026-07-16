@@ -7,6 +7,7 @@ import {
 } from "@app/contracts";
 import type { FastifyInstance, InjectOptions } from "fastify";
 import { type ApiRuntimeConfig, loadApiConfig } from "../config/load-api-config.js";
+import { loadMigrationConfig } from "../config/load-migration-config.js";
 import { createNestApplication } from "../create-nest-application.js";
 
 type TestConfigOverrides = Partial<Pick<ApiRuntimeConfig, "corsOrigins" | "maxRpcBodyBytes">>;
@@ -212,7 +213,22 @@ test("API runtime config validates numeric values", () => {
   assert.equal(config.maxRpcBodyBytes, 2048);
   assert.equal(config.port, 4000);
   assert.throws(() => loadApiConfig({ PORT: "not-a-port" }));
+  assert.throws(() => loadApiConfig({ PORT: "70000" }));
   assert.throws(() => loadApiConfig({ NODE_ENV: "production" }));
+  assert.throws(() =>
+    loadApiConfig({
+      CORS_ORIGINS: "",
+      DATABASE_URL: "postgresql://user:password@database:5432/app",
+      NODE_ENV: "production"
+    })
+  );
+  assert.throws(() =>
+    loadApiConfig({
+      CORS_ORIGINS: "*",
+      DATABASE_URL: "postgresql://user:password@database:5432/app",
+      NODE_ENV: "production"
+    })
+  );
 
   const production = loadApiConfig({
     CORS_ORIGINS: "https://app.example.com",
@@ -220,4 +236,10 @@ test("API runtime config validates numeric values", () => {
     NODE_ENV: "production"
   });
   assert.equal(production.database?.maxConnections, 10);
+
+  const migration = loadMigrationConfig({
+    DATABASE_URL: "postgresql://runtime:password@database:5432/app",
+    MIGRATION_DATABASE_URL: "postgresql://owner:password@database:5432/app"
+  });
+  assert.match(migration.database.url, /owner/);
 });

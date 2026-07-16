@@ -5,6 +5,9 @@ mobile и desktop-приложений на едином TypeScript-стеке.
 
 [English version](./README.md)
 
+**Статус:** production-ready техническая основа. Скопированный продукт всё равно должен
+завершить продуктовый security/operations checklist до запуска реального трафика.
+
 ## Что это
 
 Product Foundation — универсальный монорепозиторий для запуска нескольких
@@ -22,8 +25,8 @@ runtime-оболочки и базовые механизмы надёжност
 - NestJS + Fastify backend;
 - PostgreSQL и версионируемые SQL-миграции;
 - contract-first RPC с runtime-валидацией через Zod;
-- обязательная durable idempotency для mutations;
-- global и tenant data scope без фиктивных tenants;
+- транзакционно-атомарная PostgreSQL idempotency для mutations;
+- global scope либо tenant execution context с обязательной проверкой forced RLS;
 - transactional outbox, retry, dead-letter и retention;
 - отдельный background worker с health checks и Prometheus metrics;
 - request ID, CORS, Helmet, rate/body limits и безопасные логи;
@@ -92,7 +95,8 @@ pnpm check:native   # Capacitor config и Rust/Tauri
 ```
 
 CI дополнительно запускает PostgreSQL integration tests, Compose smoke и
-Tauri build без bundling.
+Tauri build без bundling. Pull requests проходят dependency review, CodeQL
+запускается для pushes/PRs и еженедельно, а Dependabot обновляет npm, Cargo и Actions refs.
 
 ## Начало нового продукта
 
@@ -104,8 +108,13 @@ Tauri build без bundling.
 6. Создайте первый frontend vertical slice в `packages/frontend-app`.
 7. Подключите выбранные identity, permissions, design system и deployment.
 
+Для tenant-продукта обязателен
+[tenant isolation contract](./docs/architecture/tenant-isolation.md). Tenant context сам по
+себе не является изоляцией: каждая tenant-owned таблица должна принудительно включать RLS и
+иметь негативные cross-tenant tests.
+
 Короткое объяснение структуры и правил находится в
-[DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).
+[DEVELOPER_GUIDE-RU.md](./DEVELOPER_GUIDE-RU.md).
 
 ## Что намеренно не входит в foundation
 
@@ -118,10 +127,21 @@ Tauri build без bundling.
 
 Эти решения добавляются только тогда, когда известны требования продукта.
 
+## Production boundary
+
+Foundation готов к копированию и расширению, но скопированное приложение не становится
+production-ready только из-за прохождения foundation checks. До реального трафика продукт
+должен завершить identity/session model, authorization rules, threat model, tenant policies,
+secret management, deployment isolation, alerts, backup/restore drill и продуктовые
+integration tests.
+
 ## Документация
 
-- [Developer guide](./DEVELOPER_GUIDE.md)
+- [Путеводитель разработчика](./DEVELOPER_GUIDE-RU.md)
 - [Architecture overview](./docs/architecture/README.md)
 - [Foundation readiness](./docs/architecture/foundation-readiness.md)
 - [Architecture decisions](./docs/adr)
 - [AI development rules](./AGENTS.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)
+- [MIT license](./LICENSE)

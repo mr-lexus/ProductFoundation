@@ -1,0 +1,21 @@
+CREATE SCHEMA IF NOT EXISTS platform AUTHORIZATION app;
+
+DO $block$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = 'app_runtime') THEN
+    CREATE ROLE app_runtime
+      LOGIN
+      PASSWORD 'local_runtime_password'
+      NOSUPERUSER
+      NOCREATEDB
+      NOCREATEROLE
+      NOINHERIT
+      NOBYPASSRLS;
+  END IF;
+END
+$block$;
+
+GRANT CONNECT ON DATABASE app TO app_runtime;
+GRANT USAGE ON SCHEMA platform TO app_runtime;
+ALTER DEFAULT PRIVILEGES FOR ROLE app IN SCHEMA platform
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;

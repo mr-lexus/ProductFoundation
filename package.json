@@ -1,6 +1,7 @@
 {
   "name": "product-foundation-starter",
   "private": true,
+  "license": "MIT",
   "packageManager": "pnpm@11.7.0",
   "engines": {
     "node": ">=24.0.0 <25.0.0"
@@ -35,7 +36,7 @@
     "check:types": "pnpm build:contracts && pnpm --filter @product-foundation/rpc check && pnpm --filter @product-foundation/rpc-client check && pnpm --filter @product-foundation/rpc-server check && pnpm --filter @product-foundation/backend-core check && pnpm --filter @product-foundation/backend-postgres check && pnpm --filter @app/contracts check && pnpm --filter @app/frontend-app check && pnpm --filter @app/web check && pnpm --filter @app/mobile check && pnpm --filter @app/api check",
     "check:native": "pnpm --filter @app/mobile check && pnpm --filter @app/desktop check",
     "format": "biome check --write .",
-    "test": "pnpm --filter @product-foundation/rpc-client test && pnpm --filter @product-foundation/rpc-server test && pnpm --filter @product-foundation/backend-core test && pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/api test",
+    "test": "pnpm --filter @product-foundation/rpc-client test && pnpm --filter @product-foundation/rpc-server test && pnpm --filter @product-foundation/backend-core test && pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/frontend-app test && pnpm --filter @app/api test",
     "check": "pnpm check:static && pnpm check:architecture && pnpm check:types && pnpm test"
   },
   "devDependencies": {

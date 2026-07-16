@@ -7,6 +7,7 @@ import {
 } from "@nestjs/common";
 import type { SqlExecutor, TransactionRunner } from "@product-foundation/backend-core";
 import {
+  assertTenantRuntimeRoleSafe,
   PostgresDatabase,
   PostgresIdempotencyStore,
   PostgresOutboxStore,
@@ -23,6 +24,7 @@ import {
 } from "./database.tokens.js";
 
 const POSTGRES_DATABASE = Symbol("POSTGRES_DATABASE");
+const TENANT_RUNTIME_ROLE_SAFETY = Symbol("TENANT_RUNTIME_ROLE_SAFETY");
 
 @Injectable()
 class DatabaseLifecycle implements OnApplicationShutdown {
@@ -86,10 +88,10 @@ export class DatabaseModule {
           useExisting: POSTGRES_DATABASE
         },
         {
-          inject: [SQL_EXECUTOR, TRANSACTION_RUNNER],
+          inject: [TRANSACTION_RUNNER],
           provide: IDEMPOTENCY_STORE,
-          useFactory: (sql: SqlExecutor, transactions: TransactionRunner) =>
-            new PostgresIdempotencyStore(sql, transactions)
+          useFactory: (transactions: TransactionRunner) =>
+            new PostgresIdempotencyStore(transactions)
         },
         {
           inject: [SQL_EXECUTOR, TRANSACTION_RUNNER],
@@ -103,6 +105,18 @@ export class DatabaseModule {
           useFactory: (transactions: PostgresDatabase) =>
             new PostgresTenantTransactionRunner(transactions)
         },
+        ...(dataScopeMode === "tenant"
+          ? [
+              {
+                inject: [POSTGRES_DATABASE],
+                provide: TENANT_RUNTIME_ROLE_SAFETY,
+                useFactory: async (database: PostgresDatabase) => {
+                  await assertTenantRuntimeRoleSafe(database);
+                  return true;
+                }
+              }
+            ]
+          : []),
         DatabaseLifecycle
       ]
     };

@@ -3,8 +3,9 @@ import type {
   RpcProcedureContract,
   RpcSuccessResponse
 } from "@product-foundation/rpc";
+import { assertRpcWireValueStable } from "@product-foundation/rpc";
 import { RpcApplicationError } from "./rpc-application-error.js";
-import type { RpcActor, RpcHandler, RpcHandlerInvoker } from "./rpc-handler.js";
+import type { RpcActor, RpcHandler, RpcHandlerInvoker, RpcRequestContext } from "./rpc-handler.js";
 import {
   createRpcErrorResponse,
   isJsonContentType,
@@ -13,18 +14,22 @@ import {
   resolveRequestId
 } from "./rpc-protocol.js";
 
-interface ExecuteRpcProcedureOptions {
+interface ExecuteRpcProcedureBaseOptions {
   readonly actor?: RpcActor | null;
   readonly body: unknown;
   readonly contentType?: string;
   readonly createRequestId?: () => string;
   readonly idempotencyKey?: string;
-  readonly handlerInvoker?: RpcHandlerInvoker;
   readonly logError: (error: unknown, context: { procedureId: string; requestId: string }) => void;
   readonly now?: () => Date;
   readonly requestId?: string;
   readonly signal: AbortSignal;
 }
+
+type ExecuteRpcProcedureOptions<TExecution> = ExecuteRpcProcedureBaseOptions &
+  ([TExecution] extends [undefined]
+    ? { readonly handlerInvoker?: RpcHandlerInvoker<undefined> }
+    : { readonly handlerInvoker: RpcHandlerInvoker<TExecution> });
 
 export interface RpcExecutionResult<TOutput> {
   readonly body: RpcErrorResponse | RpcSuccessResponse<TOutput>;
@@ -32,10 +37,26 @@ export interface RpcExecutionResult<TOutput> {
   readonly status: RpcHttpStatus;
 }
 
-export async function executeRpcProcedure<TInput, TOutput>(
+function validateOutput<TInput, TOutput>(
   contract: RpcProcedureContract<TInput, TOutput>,
-  handler: RpcHandler<TInput, TOutput>,
-  options: ExecuteRpcProcedureOptions
+  output: unknown
+) {
+  const parsedOutput = contract.outputSchema.safeParse(output);
+  if (!parsedOutput.success) {
+    throw new Error(`RPC procedure ${contract.id} returned an invalid output.`);
+  }
+  assertRpcWireValueStable(
+    contract.outputSchema,
+    parsedOutput.data,
+    `Output for RPC procedure ${contract.id}`
+  );
+  return parsedOutput.data;
+}
+
+export async function executeRpcProcedure<TInput, TOutput, TExecution = undefined>(
+  contract: RpcProcedureContract<TInput, TOutput>,
+  handler: RpcHandler<TInput, TOutput, TExecution>,
+  options: ExecuteRpcProcedureOptions<TExecution>
 ): Promise<RpcExecutionResult<TOutput>> {
   const now = options.now ?? (() => new Date());
   const requestId = resolveRequestId(options.requestId, options.createRequestId);
@@ -114,34 +135,51 @@ export async function executeRpcProcedure<TInput, TOutput>(
       status: 400
     };
   }
+  try {
+    assertRpcWireValueStable(
+      contract.inputSchema,
+      parsedInput.data,
+      `Input for RPC procedure ${contract.id}`
+    );
+  } catch {
+    return {
+      body: createRpcErrorResponse(
+        requestId,
+        "BAD_REQUEST",
+        "RPC input must be JSON-compatible after validation.",
+        false
+      ),
+      requestId,
+      status: 400
+    };
+  }
 
   try {
-    const context = {
+    const context: RpcRequestContext<undefined> = {
       actor: options.actor ?? null,
+      execution: undefined,
       idempotencyKey: options.idempotencyKey ?? null,
       receivedAt,
       requestId,
       signal: options.signal
     };
+    const handlerInvoker = options.handlerInvoker as RpcHandlerInvoker<TExecution> | undefined;
     const output =
-      options.handlerInvoker === undefined
-        ? await handler(parsedInput.data, context)
-        : await options.handlerInvoker.invoke({
+      handlerInvoker === undefined
+        ? await handler(parsedInput.data, context as RpcRequestContext<TExecution>)
+        : await handlerInvoker.invoke({
             context,
             handler,
             input: parsedInput.data,
-            procedureId: contract.id
+            procedureId: contract.id,
+            validateOutput: (candidate) => validateOutput(contract, candidate)
           });
-    const parsedOutput = contract.outputSchema.safeParse(output);
-
-    if (!parsedOutput.success) {
-      throw new Error(`RPC procedure ${contract.id} returned an invalid output.`);
-    }
+    const validatedOutput = validateOutput(contract, output);
 
     return {
       body: {
         ok: true,
-        data: parsedOutput.data,
+        data: validatedOutput,
         meta: {
           requestId,
           servedAt: now().toISOString()

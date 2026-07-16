@@ -1,13 +1,18 @@
 import { createHash } from "node:crypto";
+import type { SqlExecutor } from "../ports/database.js";
 import type { OperationScope } from "../security/request-context.js";
 
-export type IdempotencyClaim =
-  | { readonly kind: "acquired" }
+export type IdempotencyStoreResult<TBody> =
   | { readonly kind: "conflict" }
+  | {
+      readonly kind: "executed";
+      readonly responseBody: TBody;
+      readonly responseStatus: number;
+    }
   | { readonly kind: "in_progress" }
   | {
       readonly kind: "replay";
-      readonly responseBody: unknown;
+      readonly responseBody: TBody;
       readonly responseStatus: number;
     };
 
@@ -23,21 +28,16 @@ export interface IdempotencyOwnership {
 }
 
 export interface IdempotencyStore {
-  claim(
+  runAtomically<TBody>(
     key: IdempotencyKey,
     options: IdempotencyOwnership & {
       readonly leaseMs: number;
       readonly ttlMs: number;
-    }
-  ): Promise<IdempotencyClaim>;
-
-  complete(
-    key: IdempotencyKey,
-    ownership: IdempotencyOwnership,
-    response: { readonly body: unknown; readonly status: number }
-  ): Promise<void>;
-
-  release(key: IdempotencyKey, ownership: IdempotencyOwnership): Promise<void>;
+    },
+    execute: (
+      transaction: SqlExecutor
+    ) => Promise<{ readonly body: TBody; readonly status: number }>
+  ): Promise<IdempotencyStoreResult<TBody>>;
 }
 
 export function hashIdempotencyPayload(payload: string | Uint8Array) {
@@ -64,6 +64,10 @@ function stableJsonValue(value: unknown, seen: Set<object>): string {
     return serialized;
   }
   if (typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError("Idempotency payload contains a non-plain object.");
+    }
     if (seen.has(value)) {
       throw new TypeError("Idempotency payload contains a circular reference.");
     }

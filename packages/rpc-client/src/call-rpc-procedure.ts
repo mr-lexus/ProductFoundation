@@ -1,4 +1,5 @@
 import {
+  assertRpcWireValueStable,
   createRpcSuccessResponseSchema,
   type RpcCallResult,
   type RpcProcedureContract,
@@ -33,6 +34,19 @@ export async function callRpcProcedure<TInput, TOutput>(
       code: "INVALID_INPUT",
       details: parsedInput.error.issues,
       message: `Invalid input for RPC procedure ${contract.id}.`
+    });
+  }
+  try {
+    assertRpcWireValueStable(
+      contract.inputSchema,
+      parsedInput.data,
+      `Input for RPC procedure ${contract.id}`
+    );
+  } catch (error) {
+    throw new RpcClientError({
+      cause: error,
+      code: "INVALID_INPUT",
+      message: `Input for RPC procedure ${contract.id} is not JSON-compatible.`
     });
   }
 
@@ -97,6 +111,21 @@ export async function callRpcProcedure<TInput, TOutput>(
       details: parsedResponse.error.issues,
       message: `RPC procedure ${contract.id} returned an invalid response.`,
       requestId: response.headers.get("x-request-id") ?? undefined,
+      status: response.status
+    });
+  }
+  try {
+    assertRpcWireValueStable(
+      contract.outputSchema,
+      parsedResponse.data.data,
+      `Output for RPC procedure ${contract.id}`
+    );
+  } catch (error) {
+    throw new RpcClientError({
+      cause: error,
+      code: "INVALID_RESPONSE",
+      message: `RPC procedure ${contract.id} returned a non-stable JSON response.`,
+      requestId: parsedResponse.data.meta.requestId,
       status: response.status
     });
   }

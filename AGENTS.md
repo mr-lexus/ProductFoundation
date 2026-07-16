@@ -137,8 +137,15 @@ Data scope is an explicit product choice:
 * `tenant` products use `TenantTransactionRunner`; raw SQL ports are not exported
 * durable primitives use `OperationScope`, which is either `global` or `tenant`
 
-All RPC mutations use the durable idempotency invoker. Queries do not write to
-the idempotency ledger.
+Tenant mode is complete only when every tenant-owned product table enables and
+forces PostgreSQL RLS, defines an `app.tenant_id` policy, passes
+`assertTenantRelationsSecure`, and has negative cross-tenant tests under the
+non-superuser runtime database role.
+
+All RPC mutations use the durable idempotency invoker. Mutation state changes
+and outbox writes use `context.execution.transaction` so validated output and
+ledger completion commit atomically. External effects run from the outbox.
+Queries do not write to the idempotency ledger.
 
 ---
 

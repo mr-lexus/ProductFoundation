@@ -3,24 +3,26 @@ export interface RpcActor {
   readonly subjectId: string;
 }
 
-export interface RpcRequestContext {
+export interface RpcRequestContext<TExecution = undefined> {
   readonly actor: RpcActor | null;
+  readonly execution: TExecution;
   readonly idempotencyKey: string | null;
   readonly receivedAt: Date;
   readonly requestId: string;
   readonly signal: AbortSignal;
 }
 
-export type RpcHandler<TInput, TOutput> = (
+export type RpcHandler<TInput, TOutput, TExecution = undefined> = (
   input: TInput,
-  context: RpcRequestContext
+  context: RpcRequestContext<TExecution>
 ) => Promise<TOutput> | TOutput;
 
-export interface RpcHandlerInvoker {
+export interface RpcHandlerInvoker<TExecution = undefined> {
   invoke<TInput, TOutput>(options: {
-    readonly context: RpcRequestContext;
-    readonly handler: RpcHandler<TInput, TOutput>;
+    readonly context: RpcRequestContext<undefined>;
+    readonly handler: RpcHandler<TInput, TOutput, TExecution>;
     readonly input: TInput;
     readonly procedureId: string;
+    readonly validateOutput: (output: unknown) => TOutput;
   }): Promise<TOutput>;
 }

@@ -2,15 +2,12 @@ import {
   foundationMigrationsDirectory,
   runSqlMigrations
 } from "@product-foundation/backend-postgres";
-import { loadApiConfig } from "../config/load-api-config.js";
+import { loadMigrationConfig } from "../config/load-migration-config.js";
 
 const productMigrationsDirectory = new URL("../../../migrations/", import.meta.url);
 
 async function migrate() {
-  const config = loadApiConfig();
-  if (config.database === undefined) {
-    throw new Error("DATABASE_URL is required to run migrations.");
-  }
+  const config = loadMigrationConfig();
 
   await runSqlMigrations({
     connectionTimeoutMs: config.database.connectionTimeoutMs,

@@ -5,6 +5,9 @@ mobile, and desktop applications on a shared TypeScript stack.
 
 [Русская версия](./README-RU.md)
 
+**Maturity:** production-ready technical baseline. A copied product still has to complete
+the product security and operations checklist described below before serving real traffic.
+
 ## What it is
 
 Product Foundation is a reusable monorepo for launching multiple products on a
@@ -22,8 +25,8 @@ product layer, and start building.
 - NestJS + Fastify backend;
 - PostgreSQL and versioned SQL migrations;
 - contract-first RPC with Zod runtime validation;
-- mandatory durable idempotency for mutations;
-- global and tenant data scopes without fake tenants;
+- transactionally atomic PostgreSQL idempotency for mutations;
+- global scope or tenant execution context with mandatory forced-RLS verification;
 - transactional outbox, retry, dead-letter, and retention;
 - a separate background worker with health checks and Prometheus metrics;
 - request IDs, CORS, Helmet, rate/body limits, and safe structured logs;
@@ -92,7 +95,8 @@ pnpm check:native   # Capacitor config and Rust/Tauri
 ```
 
 CI additionally runs PostgreSQL integration tests, the Compose smoke test, and
-a Tauri build without bundling.
+a Tauri build without bundling. Pull requests receive dependency review, CodeQL
+runs on pushes/PRs and weekly, and Dependabot maintains npm, Cargo and Actions refs.
 
 ## Starting a new product
 
@@ -103,6 +107,10 @@ a Tauri build without bundling.
 5. Add a product migration to `apps/api/migrations`.
 6. Create the first frontend vertical slice in `packages/frontend-app`.
 7. Connect the selected identity, permissions, design system, and deployment.
+
+For a tenant product, follow the mandatory
+[tenant isolation contract](./docs/architecture/tenant-isolation.md). Tenant context alone is
+not isolation: every tenant-owned table must force RLS and pass negative cross-tenant tests.
 
 Read [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) for a concise map of the
 repository and its rules.
@@ -118,6 +126,14 @@ repository and its rules.
 
 These decisions are added only when the product requirements are known.
 
+## Production boundary
+
+The foundation is ready to be copied and extended; a copied application is not production-ready
+merely because the foundation checks pass. Before real traffic, the product must complete its
+identity/session model, authorization rules, threat model, tenant policies when applicable,
+secret management, deployment isolation, alerts, backup/restore drill, and product-specific
+integration tests.
+
 ## Documentation
 
 - [Developer guide](./DEVELOPER_GUIDE.md)
@@ -125,3 +141,6 @@ These decisions are added only when the product requirements are known.
 - [Foundation readiness](./docs/architecture/foundation-readiness.md)
 - [Architecture decisions](./docs/adr)
 - [AI development rules](./AGENTS.md)
+- [Contributing](./CONTRIBUTING.md)
+- [Security policy](./SECURITY.md)
+- [MIT license](./LICENSE)

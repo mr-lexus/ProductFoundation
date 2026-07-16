@@ -16,6 +16,11 @@ pnpm db:migrate:dev
 pnpm dev:demo
 ```
 
+Compose creates a privileged local migration owner and a separate least-privilege
+`app_runtime` role for API/worker. If the database volume predates this role split,
+recreate the disposable local volume with `docker compose down --volumes` before
+starting it again.
+
 - web: `http://localhost:1420`
 - API liveness: `http://localhost:3001/health/live`
 - API readiness: `http://localhost:3001/health/ready`

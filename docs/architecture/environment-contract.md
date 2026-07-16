@@ -6,7 +6,8 @@ feature code must not read `process.env` directly.
 | Variable | Owner | Default | Meaning |
 | --- | --- | --- | --- |
 | `NODE_ENV` | API/worker | `development` | `development`, `test`, `production` |
-| `DATABASE_URL` | API/worker/migrate | none | required for worker/migrate and production API |
+| `DATABASE_URL` | API/worker | none | least-privilege runtime connection; required for worker and production API |
+| `MIGRATION_DATABASE_URL` | migrate | fallback to `DATABASE_URL` | privileged migration-only connection; do not expose to API/worker |
 | `DATABASE_POOL_MAX` | API/worker | `10` | connections per process |
 | `DATABASE_CONNECTION_TIMEOUT_MS` | API/worker | `5000` | positive integer |
 | `DATA_SCOPE_MODE` | API | `global` | `global` or `tenant` DI capabilities |
@@ -18,7 +19,7 @@ feature code must not read `process.env` directly.
 | `RATE_LIMIT_WINDOW_MS` | API | `60000` | rate-limit window |
 | `TRUST_PROXY` | API | `false` | enable only behind a trusted proxy |
 | `LOG_LEVEL` | API | `info` | Pino-compatible level |
-| `WORKER_BATCH_SIZE` | worker | `50` | messages claimed per batch |
+| `WORKER_BATCH_SIZE` | worker | `10` | maximum concurrently claimed/delivered messages, range 1..50 |
 | `WORKER_LEASE_MS` | worker | `30000` | delivery lease |
 | `WORKER_MAX_ATTEMPTS` | worker | `10` | attempts before dead letter |
 | `WORKER_POLL_INTERVAL_MS` | worker | `1000` | idle/error retry delay |

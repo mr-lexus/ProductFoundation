@@ -20,7 +20,7 @@
     "worker": "node --enable-source-maps dist/worker.js",
     "worker:dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx src/worker.ts",
     "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts"
+    "test": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts src/shared/application/durable-rpc-mutation.integration.test.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",

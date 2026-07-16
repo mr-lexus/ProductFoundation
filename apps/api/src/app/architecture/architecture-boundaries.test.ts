@@ -15,7 +15,10 @@ import {
   OutboxWorker,
   requirePermission
 } from "@product-foundation/backend-core";
-import { PostgresTenantTransactionRunner } from "@product-foundation/backend-postgres";
+import {
+  assertTenantRuntimeRoleSafe,
+  PostgresTenantTransactionRunner
+} from "@product-foundation/backend-postgres";
 
 function context(): AuthorizedRequestContext {
   return {
@@ -62,6 +65,10 @@ test("tenant transaction installs tenant scope before repository work", async ()
 
   assert.deepEqual(queries, [
     {
+      text: "SET LOCAL row_security = on",
+      values: []
+    },
+    {
       text: "SELECT set_config('app.tenant_id', $1, true)",
       values: [scope.tenantId]
     },
@@ -77,13 +84,35 @@ test("tenant identifiers reject non-UUID input", () => {
   assert.throws(() => createUserId("user-1"), /must be a UUID/);
 });
 
-function claimedMessage(attemptCount = 1): ClaimedOutboxMessage {
+test("tenant runtime role rejects PostgreSQL RLS bypass capabilities", async () => {
+  const sql: SqlExecutor = {
+    async query<TRow extends object>() {
+      return {
+        rowCount: 1,
+        rows: [
+          {
+            bypasses_rls: true,
+            is_superuser: false,
+            role_name: "unsafe_runtime"
+          }
+        ] as unknown as TRow[]
+      };
+    }
+  };
+
+  await assert.rejects(assertTenantRuntimeRoleSafe(sql), /NOSUPERUSER and NOBYPASSRLS/);
+});
+
+function claimedMessage(
+  attemptCount = 1,
+  id = "3e052fc8-f7d3-4194-a280-1fe9752e3777"
+): ClaimedOutboxMessage {
   return {
     aggregateId: "aggregate-1",
     aggregateType: "architecture-probe",
     attemptCount,
     eventType: "architecture.probed.v1",
-    id: "3e052fc8-f7d3-4194-a280-1fe9752e3777",
+    id,
     occurredAt: new Date("2026-07-12T00:00:00.000Z"),
     payload: { ignoredByLogs: "sensitive" },
     schemaVersion: 1,
@@ -152,4 +181,129 @@ test("outbox worker dead-letters exhausted messages without logging payload", as
   assert.equal(failures[0]?.deadLetter, true);
   assert.equal(logs[0]?.deadLetter, true);
   assert.equal("payload" in (logs[0] ?? {}), false);
+});
+
+test("outbox worker schedules a bounded retry before dead-letter exhaustion", async () => {
+  let failure: Parameters<OutboxStore["fail"]>[0] | undefined;
+  const store: OutboxStore = {
+    async claim() {
+      return [claimedMessage(1)];
+    },
+    async complete() {
+      assert.fail("an unhandled message must not complete");
+    },
+    async fail(options) {
+      failure = options;
+    }
+  };
+  const worker = new OutboxWorker(
+    store,
+    new Map(),
+    { batchSize: 1, leaseMs: 30_000, maxAttempts: 3, workerId: "worker-1" },
+    () => undefined
+  );
+
+  await worker.runOnce();
+
+  assert.equal(failure?.deadLetter, false);
+  assert.equal(failure?.retryDelayMs, 250);
+});
+
+test("outbox worker starts every claimed lease without queueing behind another handler", async () => {
+  const first = claimedMessage(1, "3e052fc8-f7d3-4194-a280-1fe9752e3777");
+  const second = claimedMessage(1, "c9987653-a4ec-4f17-bdd8-1df71559cbf8");
+  const started: string[] = [];
+  let releaseFirst: (() => void) | undefined;
+  const firstMayFinish = new Promise<void>((resolve) => {
+    releaseFirst = resolve;
+  });
+  const store: OutboxStore = {
+    async claim() {
+      return [first, second];
+    },
+    async complete() {},
+    async fail() {
+      assert.fail("successful concurrent deliveries must not fail");
+    }
+  };
+  const worker = new OutboxWorker(
+    store,
+    new Map([
+      [
+        first.eventType,
+        {
+          async handle(message: ClaimedOutboxMessage) {
+            started.push(message.id);
+            if (message.id === first.id) {
+              await firstMayFinish;
+            }
+          }
+        }
+      ]
+    ]),
+    { batchSize: 2, leaseMs: 30_000, maxAttempts: 3, workerId: "worker-1" },
+    () => undefined
+  );
+
+  const run = worker.runOnce();
+  await Promise.resolve();
+  assert.deepEqual(started, [first.id, second.id]);
+  releaseFirst?.();
+  assert.equal(await run, 2);
+});
+
+test("outbox worker does not abandon leases when shutdown starts during claim", async () => {
+  const controller = new AbortController();
+  const failed: string[] = [];
+  const message = claimedMessage();
+  const store: OutboxStore = {
+    async claim() {
+      controller.abort();
+      return [message];
+    },
+    async complete() {
+      assert.fail("an aborted delivery must not complete");
+    },
+    async fail(options) {
+      failed.push(options.messageId);
+    }
+  };
+  const worker = new OutboxWorker(
+    store,
+    new Map([
+      [
+        message.eventType,
+        {
+          async handle(_message, context) {
+            context.signal?.throwIfAborted();
+          }
+        }
+      ]
+    ]),
+    { batchSize: 1, leaseMs: 30_000, maxAttempts: 3, workerId: "worker-1" },
+    () => undefined
+  );
+
+  assert.equal(await worker.runOnce(controller.signal), 1);
+  assert.deepEqual(failed, [message.id]);
+});
+
+test("outbox worker does not claim after shutdown", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  const store: OutboxStore = {
+    async claim() {
+      assert.fail("an aborted worker must not claim messages");
+    },
+    async complete() {},
+    async fail() {}
+  };
+  const worker = new OutboxWorker(
+    store,
+    new Map(),
+    { batchSize: 1, leaseMs: 30_000, maxAttempts: 3, workerId: "worker-1" },
+    () => undefined
+  );
+
+  assert.equal(await worker.runOnce(controller.signal), 0);
 });

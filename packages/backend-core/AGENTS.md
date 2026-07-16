@@ -11,3 +11,7 @@ effects are interfaces supplied by a composition root.
 Prefer small explicit ports over generic repositories or service locators. A
 change must remain usable by at least two unrelated product domains in concept
 and must be covered through a package or consumer test.
+
+Idempotent mutation execution is atomic with the supplied SQL transaction.
+Validated state, outbox and ledger completion commit together; external effects
+belong in idempotent outbox handlers.

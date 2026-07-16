@@ -17,8 +17,12 @@ or an external broker on day one.
 - `DATA_SCOPE_MODE=global` exports ordinary SQL and transaction capabilities.
 - `DATA_SCOPE_MODE=tenant` exports only `TenantTransactionRunner` to product
   modules. The PostgreSQL adapter installs transaction-local `app.tenant_id`.
+- Tenant-owned tables must enable and force RLS, define an explicit policy, run
+  under a non-superuser role and pass metadata plus negative cross-tenant tests.
 - Authorization remains deny-by-default and always receives the operation scope.
 - Every RPC mutation requires `X-Idempotency-Key` and a durable handler invoker.
+- Product state, outbox messages, validated output and idempotency completion use
+  one PostgreSQL transaction exposed explicitly to the mutation handler.
 - Idempotency records contain request hashes, TTL, lease and owner token. Only
   the current owner may complete or release a record.
 - State changes and outbox messages use one database transaction.

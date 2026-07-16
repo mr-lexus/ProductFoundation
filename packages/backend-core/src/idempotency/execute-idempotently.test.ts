@@ -1,12 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { IdempotencyKey, IdempotencyOwnership, IdempotencyStore } from "../index.js";
+import type { IdempotencyStore, SqlExecutor } from "../index.js";
 import {
   executeIdempotently,
   globalScope,
   hashIdempotencyValue,
-  IdempotencyConflictError
+  IdempotencyConflictError,
+  IdempotencyInProgressError
 } from "../index.js";
+
+const transaction: SqlExecutor = {
+  async query() {
+    return { rowCount: 0, rows: [] };
+  }
+};
 
 test("idempotency hashes JSON objects independently of key order", () => {
   assert.equal(
@@ -15,24 +22,29 @@ test("idempotency hashes JSON objects independently of key order", () => {
   );
 });
 
+test("idempotency rejects non-JSON payload objects", () => {
+  assert.throws(() => hashIdempotencyValue({ when: new Date() }), /non-plain object/);
+});
+
 test("idempotent execution completes with the ownership that acquired the lease", async () => {
-  let claimedOwner: string | undefined;
-  let completedOwner: string | undefined;
+  let owner: string | undefined;
   const store: IdempotencyStore = {
-    async claim(_key, ownership) {
-      claimedOwner = ownership.ownerId;
-      return { kind: "acquired" };
-    },
-    async complete(_key, ownership) {
-      completedOwner = ownership.ownerId;
-    },
-    async release() {
-      assert.fail("successful execution must not release its lease");
+    async runAtomically(_key, ownership, execute) {
+      owner = ownership.ownerId;
+      const response = await execute(transaction);
+      return {
+        kind: "executed",
+        responseBody: response.body,
+        responseStatus: response.status
+      };
     }
   };
 
   const result = await executeIdempotently({
-    execute: async () => ({ body: { created: true }, status: 200 }),
+    execute: async (suppliedTransaction) => {
+      assert.equal(suppliedTransaction, transaction);
+      return { body: { created: true }, status: 200 };
+    },
     idempotencyKey: "create-1",
     input: { name: "Example" },
     leaseMs: 30_000,
@@ -47,17 +59,14 @@ test("idempotent execution completes with the ownership that acquired the lease"
     replayed: false,
     status: 200
   });
-  assert.ok(claimedOwner);
-  assert.equal(completedOwner, claimedOwner);
+  assert.ok(owner);
 });
 
 test("idempotent execution rejects a key reused for another payload", async () => {
   const store: IdempotencyStore = {
-    async claim() {
+    async runAtomically() {
       return { kind: "conflict" };
-    },
-    async complete(_key: IdempotencyKey, _ownership: IdempotencyOwnership) {},
-    async release(_key: IdempotencyKey, _ownership: IdempotencyOwnership) {}
+    }
   };
 
   await assert.rejects(
@@ -72,5 +81,56 @@ test("idempotent execution rejects a key reused for another payload", async () =
       ttlMs: 60_000
     }),
     IdempotencyConflictError
+  );
+});
+
+test("idempotent execution returns a stored replay without invoking work", async () => {
+  const store: IdempotencyStore = {
+    async runAtomically<TBody>() {
+      return {
+        kind: "replay",
+        responseBody: { created: true } as unknown as TBody,
+        responseStatus: 200
+      };
+    }
+  };
+
+  const result = await executeIdempotently({
+    execute: async () => assert.fail("replayed work must not execute"),
+    idempotencyKey: "replay-1",
+    input: { value: 1 },
+    leaseMs: 30_000,
+    procedureId: "example.create",
+    scope: globalScope,
+    store,
+    ttlMs: 60_000
+  });
+
+  assert.deepEqual(result, {
+    body: { created: true },
+    replayed: true,
+    status: 200
+  });
+});
+
+test("idempotent execution reports an active owner", async () => {
+  const store: IdempotencyStore = {
+    async runAtomically() {
+      return { kind: "in_progress" };
+    }
+  };
+
+  await assert.rejects(
+    executeIdempotently({
+      execute: async () => assert.fail("owned work must not execute"),
+      idempotencyKey: "active-1",
+      input: { value: 1 },
+      leaseMs: 30_000,
+      procedureId: "example.create",
+      scope: globalScope,
+      store,
+      ttlMs: 60_000
+    }),
+    IdempotencyInProgressError
   );
 });

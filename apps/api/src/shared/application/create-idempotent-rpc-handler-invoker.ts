@@ -3,9 +3,24 @@ import {
   IdempotencyConflictError,
   IdempotencyInProgressError,
   type IdempotencyStore,
-  type OperationScope
+  type OperationScope,
+  type SqlExecutor
 } from "@product-foundation/backend-core";
-import { RpcApplicationError, type RpcHandlerInvoker } from "@product-foundation/rpc-server";
+import {
+  RpcApplicationError,
+  type RpcHandler,
+  type RpcHandlerInvoker
+} from "@product-foundation/rpc-server";
+
+export interface RpcMutationExecution {
+  readonly transaction: SqlExecutor;
+}
+
+export type IdempotentRpcMutationHandler<TInput, TOutput> = RpcHandler<
+  TInput,
+  TOutput,
+  RpcMutationExecution
+>;
 
 export function createIdempotentRpcHandlerInvoker(options: {
   readonly idempotencyKey: string | undefined;
@@ -13,18 +28,24 @@ export function createIdempotentRpcHandlerInvoker(options: {
   readonly scope: OperationScope;
   readonly store: IdempotencyStore;
   readonly ttlMs?: number;
-}): RpcHandlerInvoker {
+}): RpcHandlerInvoker<RpcMutationExecution> {
   return {
-    async invoke({ context, handler, input, procedureId }) {
+    async invoke({ context, handler, input, procedureId, validateOutput }) {
       if (options.idempotencyKey === undefined) {
         throw new Error("RPC validated mutation invocation without an idempotency key.");
       }
       try {
         const result = await executeIdempotently({
-          execute: async () => ({
-            body: await handler(input, context),
-            status: 200
-          }),
+          execute: async (transaction) => {
+            const output = await handler(input, {
+              ...context,
+              execution: { transaction }
+            });
+            return {
+              body: validateOutput(output),
+              status: 200
+            };
+          },
           idempotencyKey: options.idempotencyKey,
           input,
           leaseMs: options.leaseMs ?? 30_000,
@@ -38,16 +59,14 @@ export function createIdempotentRpcHandlerInvoker(options: {
         if (error instanceof IdempotencyConflictError) {
           throw new RpcApplicationError({
             code: "CONFLICT",
-            message: error.message,
-            status: 409
+            message: error.message
           });
         }
         if (error instanceof IdempotencyInProgressError) {
           throw new RpcApplicationError({
             code: "CONFLICT",
             message: error.message,
-            retryable: true,
-            status: 409
+            retryable: true
           });
         }
         throw error;
