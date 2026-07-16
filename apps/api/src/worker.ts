@@ -53,7 +53,7 @@ async function bootstrap() {
   const workerId = `${hostname()}:${process.pid}:${crypto.randomUUID()}`;
   const worker = new OutboxWorker(
     store,
-    createOutboxHandlers(),
+    createOutboxHandlers(database),
     {
       batchSize: config.batchSize,
       leaseMs: config.leaseMs,

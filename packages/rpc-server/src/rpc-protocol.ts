@@ -1,8 +1,12 @@
-import type { RpcErrorCode, RpcErrorResponse, RpcJsonValue } from "@product-foundation/rpc";
+import {
+  type RpcErrorCode,
+  type RpcErrorResponse,
+  type RpcJsonValue,
+  rpcIdempotencyKeySchema
+} from "@product-foundation/rpc";
 
 export type RpcHttpStatus = 200 | 400 | 401 | 403 | 404 | 409 | 413 | 415 | 422 | 429 | 500;
 
-const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
 
 export function createRpcErrorResponse(
@@ -30,11 +34,23 @@ export function resolveRequestId(
 }
 
 export function isValidIdempotencyKey(candidate: string | undefined) {
-  return candidate === undefined || IDEMPOTENCY_KEY_PATTERN.test(candidate);
+  return candidate === undefined || rpcIdempotencyKeySchema.safeParse(candidate).success;
 }
 
 export function isJsonContentType(value: string | undefined) {
-  return value?.toLowerCase().startsWith("application/json") ?? false;
+  if (value === undefined) {
+    return false;
+  }
+  const [mediaType, ...parameters] = value.split(";");
+  if (mediaType?.trim().toLowerCase() !== "application/json") {
+    return false;
+  }
+  return parameters.every((parameter) => {
+    const trimmed = parameter.trim();
+    return /^[!#$%&'*+.^_`|~0-9A-Za-z-]+\s*=\s*(?:"[^"\r\n]*"|[!#$%&'*+.^_`|~0-9A-Za-z-]+)$/.test(
+      trimmed
+    );
+  });
 }
 
 export function getRpcHttpErrorDefinition(status: number): {

@@ -80,6 +80,12 @@ export function assertRpcWireValueStable<T>(schema: ZodSchema<T>, value: T, labe
 
 export const rpcProcedureKindSchema = z.enum(["query", "mutation"]);
 
+export const rpcIdempotencyKeySchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._:-]+$/);
+
 export type RpcProcedureKind = z.infer<typeof rpcProcedureKindSchema>;
 
 export const rpcErrorCodeSchema = z.enum([

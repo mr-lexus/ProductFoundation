@@ -23,17 +23,10 @@ export interface IdempotencyKey {
   readonly scope: OperationScope;
 }
 
-export interface IdempotencyOwnership {
-  readonly ownerId: string;
-}
-
 export interface IdempotencyStore {
   runAtomically<TBody>(
     key: IdempotencyKey,
-    options: IdempotencyOwnership & {
-      readonly leaseMs: number;
-      readonly ttlMs: number;
-    },
+    options: { readonly ttlMs: number },
     execute: (
       transaction: SqlExecutor
     ) => Promise<{ readonly body: TBody; readonly status: number }>

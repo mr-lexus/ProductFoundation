@@ -12,6 +12,8 @@
 - [`local-development.md`](./local-development.md) — запуск и диагностика;
 - [`environment-contract.md`](./environment-contract.md) — runtime settings;
 - [`tenant-isolation.md`](./tenant-isolation.md) — mandatory RLS and runtime-role contract;
+- [`reference-durable-flow.md`](./reference-durable-flow.md) — executable mutation/outbox proof;
+- [`threat-model.md`](./threat-model.md) — assets, trust boundaries and residual responsibilities;
 - [`operations-runbook.md`](./operations-runbook.md) — deploy, rollback и incidents;
 - [`architecture-change-checklist.md`](./architecture-change-checklist.md) — проверка изменений;
 - [`naming-conventions.md`](./naming-conventions.md) — короткие правила именования;

@@ -1,0 +1,41 @@
+name: Bug report
+description: Report a reproducible defect in the foundation.
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not disclose security vulnerabilities here; follow SECURITY.md.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include expected and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide commands, configuration with secrets removed, and the smallest reproducer.
+    validations:
+      required: true
+  - type: input
+    id: revision
+    attributes:
+      label: Revision and environment
+      placeholder: commit SHA; OS; Node, pnpm, PostgreSQL versions
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs or test output
+      description: Redact tokens, URLs with credentials, payloads, and personal data.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and removed sensitive information.
+          required: true

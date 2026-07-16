@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readdir } from "node:fs/promises";
 import test from "node:test";
 import {
   createTenantId,
@@ -121,8 +122,6 @@ integrationTest(
             scope: firstTenantScope
           },
           {
-            leaseMs: 30_000,
-            ownerId: crypto.randomUUID(),
             ttlMs: 60_000
           },
           async (transaction) => {
@@ -168,8 +167,6 @@ integrationTest(
             scope: secondTenantScope
           },
           {
-            leaseMs: 30_000,
-            ownerId: crypto.randomUUID(),
             ttlMs: 60_000
           },
           async (transaction) => {
@@ -224,10 +221,12 @@ integrationTest(
         FROM platform.schema_migrations
         WHERE namespace = 'foundation'
       `);
-      assert.equal(migrationJournal.rows[0]?.count, "2");
+      const expectedMigrationCount = (await readdir(foundationMigrationsDirectory)).filter((file) =>
+        file.endsWith(".sql")
+      ).length;
+      assert.equal(migrationJournal.rows[0]?.count, String(expectedMigrationCount));
 
       const idempotency = new PostgresIdempotencyStore(database);
-      const firstOwner = { ownerId: crypto.randomUUID() };
       const idempotencyKey = {
         key: `test-${crypto.randomUUID()}`,
         procedureId: "architecture.probe",
@@ -240,8 +239,6 @@ integrationTest(
         await idempotency.runAtomically(
           idempotencyKey,
           {
-            ...firstOwner,
-            leaseMs: 30_000,
             ttlMs: 60_000
           },
           async (transaction) => {
@@ -262,8 +259,6 @@ integrationTest(
         await idempotency.runAtomically(
           idempotencyKey,
           {
-            leaseMs: 30_000,
-            ownerId: crypto.randomUUID(),
             ttlMs: 60_000
           },
           async () => assert.fail("a completed mutation must replay")
@@ -281,14 +276,43 @@ integrationTest(
             requestHash: hashIdempotencyPayload('{"value":2}')
           },
           {
-            leaseMs: 30_000,
-            ownerId: crypto.randomUUID(),
             ttlMs: 60_000
           },
           async () => assert.fail("a conflicting mutation must not execute")
         ),
         { kind: "conflict" }
       );
+
+      const concurrentKey = {
+        ...idempotencyKey,
+        key: `concurrent-${crypto.randomUUID()}`
+      };
+      let releaseFirstExecution: () => void = () => undefined;
+      let signalFirstExecutionStarted: () => void = () => undefined;
+      const firstExecutionMayFinish = new Promise<void>((resolve) => {
+        releaseFirstExecution = resolve;
+      });
+      const firstExecutionStarted = new Promise<void>((resolve) => {
+        signalFirstExecutionStarted = resolve;
+      });
+      const firstExecution = idempotency.runAtomically(
+        concurrentKey,
+        { ttlMs: 60_000 },
+        async () => {
+          signalFirstExecutionStarted();
+          await firstExecutionMayFinish;
+          return { body: { ok: true }, status: 200 };
+        }
+      );
+      await firstExecutionStarted;
+      assert.deepEqual(
+        await idempotency.runAtomically(concurrentKey, { ttlMs: 60_000 }, async () =>
+          assert.fail("a concurrent owner must not execute")
+        ),
+        { kind: "in_progress" }
+      );
+      releaseFirstExecution();
+      assert.equal((await firstExecution).kind, "executed");
 
       const failingKey = {
         ...idempotencyKey,
@@ -299,8 +323,6 @@ integrationTest(
         idempotency.runAtomically(
           failingKey,
           {
-            leaseMs: 30_000,
-            ownerId: crypto.randomUUID(),
             ttlMs: 60_000
           },
           async (transaction) => {
@@ -368,8 +390,30 @@ integrationTest(
         claimed.some((message) => message.id === eventId),
         true
       );
-      await assert.rejects(outbox.complete(eventId, "another-worker"), /lost ownership/);
-      await outbox.complete(eventId, "integration-worker");
+      const claimedEvent = claimed.find((message) => message.id === eventId);
+      assert.ok(claimedEvent);
+      await assert.rejects(
+        outbox.complete(eventId, claimedEvent.claimToken, "another-worker"),
+        /lost ownership/
+      );
+      await database.query(
+        "UPDATE platform.outbox_messages SET locked_until = now() - interval '1 millisecond' WHERE id = $1",
+        [eventId]
+      );
+      const reclaimedEvent = (
+        await outbox.claim({
+          batchSize: 10,
+          leaseMs: 30_000,
+          workerId: "integration-worker"
+        })
+      ).find((message) => message.id === eventId);
+      assert.ok(reclaimedEvent);
+      assert.notEqual(reclaimedEvent.claimToken, claimedEvent.claimToken);
+      await assert.rejects(
+        outbox.complete(eventId, claimedEvent.claimToken, "integration-worker"),
+        /lost ownership/
+      );
+      await outbox.complete(eventId, reclaimedEvent.claimToken, "integration-worker");
 
       const delivered = await database.query<{ processed: boolean }>(
         `SELECT processed_at IS NOT NULL AS processed
@@ -377,7 +421,46 @@ integrationTest(
         [eventId]
       );
       assert.equal(delivered.rows[0]?.processed, true);
+
+      const deadLetterEventId = crypto.randomUUID();
+      await database.run((transaction) =>
+        outbox.append(transaction, {
+          ...event,
+          id: deadLetterEventId,
+          occurredAt: new Date()
+        })
+      );
+      const deadLetterClaim = (
+        await outbox.claim({
+          batchSize: 10,
+          leaseMs: 30_000,
+          workerId: "dead-letter-worker"
+        })
+      ).find((message) => message.id === deadLetterEventId);
+      assert.ok(deadLetterClaim);
+      await outbox.fail({
+        claimToken: deadLetterClaim.claimToken,
+        deadLetter: true,
+        error: "deliberate integration failure",
+        messageId: deadLetterEventId,
+        retryDelayMs: 0,
+        workerId: "dead-letter-worker"
+      });
+      assert.equal(await outbox.requeueDeadLetter(deadLetterEventId), true);
+      const replayClaim = (
+        await outbox.claim({
+          batchSize: 10,
+          leaseMs: 30_000,
+          workerId: "replay-worker"
+        })
+      ).find((message) => message.id === deadLetterEventId);
+      assert.ok(replayClaim);
+      await outbox.complete(deadLetterEventId, replayClaim.claimToken, "replay-worker");
+      assert.equal(await outbox.requeueDeadLetter(deadLetterEventId), false);
     } finally {
+      await database.query(
+        "DELETE FROM platform.outbox_messages WHERE event_type = 'architecture.probed.v1'"
+      );
       await database.query("DELETE FROM platform.idempotency_records WHERE procedure_id = $1", [
         tenantProcedureId
       ]);

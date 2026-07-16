@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Idempotency concurrency was amended by ADR 0008.
 
 ## Context
 
@@ -23,11 +23,11 @@ or an external broker on day one.
 - Every RPC mutation requires `X-Idempotency-Key` and a durable handler invoker.
 - Product state, outbox messages, validated output and idempotency completion use
   one PostgreSQL transaction exposed explicitly to the mutation handler.
-- Idempotency records contain request hashes, TTL, lease and owner token. Only
-  the current owner may complete or release a record.
+- Idempotency records contain request hashes, TTL and completed responses. A transaction-scoped
+  advisory try-lock returns `in_progress` without blocking concurrent duplicate work; see ADR 0008.
 - State changes and outbox messages use one database transaction.
-- Outbox delivery uses `FOR UPDATE SKIP LOCKED`, lease ownership, bounded retry,
-  dead letters and idempotent handlers.
+- Outbox delivery uses `FOR UPDATE SKIP LOCKED`, expiring leases with per-claim
+  fencing tokens, bounded retry, dead letters and idempotent handlers.
 - Processed and dead-letter messages have configurable retention. Worker metrics
   expose pending count, oldest age, retries, dead letters and cleanup.
 

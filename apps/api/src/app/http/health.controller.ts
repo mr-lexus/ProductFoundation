@@ -1,6 +1,6 @@
 import { Controller, Get, Inject, Optional, ServiceUnavailableException } from "@nestjs/common";
 import type { DatabaseHealthCheck } from "@product-foundation/backend-core";
-import { DATABASE_HEALTH } from "../database/database.tokens.js";
+import { DATABASE_HEALTH } from "../../shared/application/database.tokens.js";
 
 @Controller()
 export class HealthController {

@@ -28,7 +28,7 @@ design system создаются после копирования репози�
 - foundation + готовый product migration namespace/directory;
 - `global | tenant` operation scope без фиктивных tenants;
 - atomic idempotency transaction для state, outbox и validated response;
-- transactional outbox, concurrent claim delivery, ownership checks,
+- transactional outbox, concurrent claim delivery, per-claim fencing tokens,
   retry/dead-letter и retention;
 - worker health, Prometheus metrics и graceful shutdown.
 
@@ -42,7 +42,7 @@ design system создаются после копирования репози�
 
 ## Следующий этап — конкретный продукт
 
-1. Переименовать placeholder identifiers.
+1. Выполнить и проверить `pnpm product:rename -- ... --write`.
 2. Выбрать `DATA_SCOPE_MODE`, identity/session model и permissions.
 3. Создать первый product contract и backend capability.
 4. Добавить первую миграцию в готовый `apps/api/migrations`.

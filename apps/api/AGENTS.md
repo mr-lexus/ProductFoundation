@@ -481,7 +481,7 @@ Confirmed decisions:
 * migrations — immutable versioned SQL with checksums and an advisory lock
 * scope — explicit `global | tenant` operation scope; tenancy is opt-in
 * async consistency — transactional outbox and a separate worker entrypoint
-* mutations — durable scope-aware idempotency ledger with lease ownership
+* mutations — durable scope-aware idempotency ledger with transaction advisory locking
 
 Open decisions that require a dedicated ADR before implementation:
 

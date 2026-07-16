@@ -1,5 +1,6 @@
 import { type DynamicModule, Module } from "@nestjs/common";
 import { APP_FILTER } from "@nestjs/core";
+import { ReferenceModule } from "../modules/reference/transport/reference.module.js";
 import { SystemModule } from "../modules/system/transport/system.module.js";
 import type { ApiRuntimeConfig } from "./config/load-api-config.js";
 import { DatabaseModule } from "./database/database.module.js";
@@ -18,7 +19,10 @@ export class AppModule {
         ObservabilityModule,
         ...(config.database === undefined
           ? []
-          : [DatabaseModule.register(config.database, config.dataScopeMode)])
+          : [
+              DatabaseModule.register(config.database, config.dataScopeMode),
+              ...(config.dataScopeMode === "global" ? [ReferenceModule] : [])
+            ])
       ],
       module: AppModule,
       providers: [

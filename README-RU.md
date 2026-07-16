@@ -5,8 +5,10 @@ mobile и desktop-приложений на едином TypeScript-стеке.
 
 [English version](./README.md)
 
-**Статус:** production-ready техническая основа. Скопированный продукт всё равно должен
-завершить продуктовый security/operations checklist до запуска реального трафика.
+**Статус:** production-oriented public beta. Foundation спроектирован для production-сценариев,
+но остаётся beta до публикации reference durable flow и прохождения всех acceptance jobs в
+публичном репозитории. Скопированный продукт всё равно должен завершить продуктовый
+security/operations checklist до запуска реального трафика.
 
 ## Что это
 
@@ -28,6 +30,7 @@ runtime-оболочки и базовые механизмы надёжност
 - транзакционно-атомарная PostgreSQL idempotency для mutations;
 - global scope либо tenant execution context с обязательной проверкой forced RLS;
 - transactional outbox, retry, dead-letter и retention;
+- исполняемый durable reference mutation, проверяемый по HTTP и в Compose;
 - отдельный background worker с health checks и Prometheus metrics;
 - request ID, CORS, Helmet, rate/body limits и безопасные логи;
 - Biome, TypeScript, unit/integration tests и architecture gates;
@@ -87,7 +90,8 @@ pnpm dev:demo
 ## Проверка репозитория
 
 ```bash
-pnpm check          # Biome, boundaries, TypeScript и тесты
+pnpm check          # детерминированные static checks и unit tests
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # плюс PostgreSQL integration tests
 pnpm build          # production web и API
 pnpm smoke:api      # запуск скомпилированного API
 pnpm smoke:compose  # PostgreSQL, migrations, API и worker
@@ -100,7 +104,7 @@ Tauri build без bundling. Pull requests проходят dependency review, C
 
 ## Начало нового продукта
 
-1. Переименуйте placeholder identifiers и migration namespace.
+1. Просмотрите и примените безопасную rename-команду из путеводителя разработчика.
 2. Выберите `DATA_SCOPE_MODE=global` или `tenant`.
 3. Добавьте первый contract в `packages/contracts`.
 4. Создайте backend capability в `apps/api/src/modules`.
@@ -140,6 +144,8 @@ integration tests.
 - [Путеводитель разработчика](./DEVELOPER_GUIDE-RU.md)
 - [Architecture overview](./docs/architecture/README.md)
 - [Foundation readiness](./docs/architecture/foundation-readiness.md)
+- [Executable durable reference flow](./docs/architecture/reference-durable-flow.md)
+- [Threat model](./docs/architecture/threat-model.md)
 - [Architecture decisions](./docs/adr)
 - [AI development rules](./AGENTS.md)
 - [Contributing](./CONTRIBUTING.md)

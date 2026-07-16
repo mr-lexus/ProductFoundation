@@ -26,11 +26,9 @@ test("idempotency rejects non-JSON payload objects", () => {
   assert.throws(() => hashIdempotencyValue({ when: new Date() }), /non-plain object/);
 });
 
-test("idempotent execution completes with the ownership that acquired the lease", async () => {
-  let owner: string | undefined;
+test("idempotent execution uses the transaction supplied by the store", async () => {
   const store: IdempotencyStore = {
-    async runAtomically(_key, ownership, execute) {
-      owner = ownership.ownerId;
+    async runAtomically(_key, _options, execute) {
       const response = await execute(transaction);
       return {
         kind: "executed",
@@ -47,7 +45,6 @@ test("idempotent execution completes with the ownership that acquired the lease"
     },
     idempotencyKey: "create-1",
     input: { name: "Example" },
-    leaseMs: 30_000,
     procedureId: "example.create",
     scope: globalScope,
     store,
@@ -59,7 +56,6 @@ test("idempotent execution completes with the ownership that acquired the lease"
     replayed: false,
     status: 200
   });
-  assert.ok(owner);
 });
 
 test("idempotent execution rejects a key reused for another payload", async () => {
@@ -74,7 +70,6 @@ test("idempotent execution rejects a key reused for another payload", async () =
       execute: async () => ({ body: null, status: 200 }),
       idempotencyKey: "conflict-1",
       input: { value: 1 },
-      leaseMs: 30_000,
       procedureId: "example.update",
       scope: globalScope,
       store,
@@ -99,7 +94,6 @@ test("idempotent execution returns a stored replay without invoking work", async
     execute: async () => assert.fail("replayed work must not execute"),
     idempotencyKey: "replay-1",
     input: { value: 1 },
-    leaseMs: 30_000,
     procedureId: "example.create",
     scope: globalScope,
     store,
@@ -125,7 +119,6 @@ test("idempotent execution reports an active owner", async () => {
       execute: async () => assert.fail("owned work must not execute"),
       idempotencyKey: "active-1",
       input: { value: 1 },
-      leaseMs: 30_000,
       procedureId: "example.create",
       scope: globalScope,
       store,

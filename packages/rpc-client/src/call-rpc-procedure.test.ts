@@ -14,6 +14,33 @@ const query = defineRpcProcedure({
   path: "/rpc/v1/example-read"
 });
 
+const mutation = defineRpcProcedure({
+  ...query,
+  id: "example.create",
+  kind: "mutation",
+  path: "/rpc/v1/example-create"
+});
+
+test("RPC client rejects a mutation without a valid idempotency key before fetch", async () => {
+  let fetched = false;
+  const config = {
+    apiBaseUrl: "https://api.example.com",
+    fetch: async () => {
+      fetched = true;
+      return new Response();
+    }
+  };
+  await assert.rejects(
+    callRpcProcedure(config, mutation, { id: "item-1" }),
+    (error: unknown) => error instanceof RpcClientError && error.code === "INVALID_INPUT"
+  );
+  await assert.rejects(
+    callRpcProcedure(config, mutation, { id: "item-1" }, { idempotencyKey: "invalid key" }),
+    (error: unknown) => error instanceof RpcClientError && error.code === "INVALID_INPUT"
+  );
+  assert.equal(fetched, false);
+});
+
 test("RPC client validates the response and forwards request metadata", async () => {
   let request: RequestInit | undefined;
   const result = await callRpcProcedure(

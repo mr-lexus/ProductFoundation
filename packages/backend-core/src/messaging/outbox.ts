@@ -14,6 +14,7 @@ export interface OutboxEvent {
 
 export interface ClaimedOutboxMessage extends OutboxEvent {
   readonly attemptCount: number;
+  readonly claimToken: string;
 }
 
 export interface OutboxWriter {
@@ -27,10 +28,11 @@ export interface OutboxStore {
     readonly workerId: string;
   }): Promise<readonly ClaimedOutboxMessage[]>;
 
-  complete(messageId: string, workerId: string): Promise<void>;
+  complete(messageId: string, claimToken: string, workerId: string): Promise<void>;
 
   fail(options: {
     readonly deadLetter: boolean;
+    readonly claimToken: string;
     readonly error: string;
     readonly messageId: string;
     readonly retryDelayMs: number;
@@ -52,6 +54,8 @@ export interface OutboxMaintenanceStore {
     readonly deadLetteredBefore: Date;
     readonly processedBefore: Date;
   }): Promise<number>;
+
+  requeueDeadLetter(messageId: string): Promise<boolean>;
 }
 
 export interface OutboxMessageHandler {

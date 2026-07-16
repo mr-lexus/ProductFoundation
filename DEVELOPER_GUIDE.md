@@ -70,8 +70,9 @@ Do not open a nested transaction from a mutation handler. External side effects 
 made atomic with PostgreSQL; write an outbox event in the transaction and deliver it through
 an idempotent worker handler.
 
-The synchronous handler must finish within its configured lease. Long work becomes a short
-transaction plus an outbox event.
+Concurrent duplicates are fenced by a transaction-scoped PostgreSQL advisory try-lock. Long work
+still becomes a short transaction plus an outbox event; do not hold database transactions open
+while waiting on an external system.
 
 ## Global and tenant data
 
@@ -117,10 +118,19 @@ VITE_API_URL=https://api.example.com pnpm tauri:build
 
 ## Rename after copying
 
+Preview a deterministic rename, review the listed files, then apply it:
+
+```bash
+pnpm product:rename -- --name "Example Product" --slug example-product \
+  --id com.example.product --namespace example
+pnpm product:rename -- --name "Example Product" --slug example-product \
+  --id com.example.product --namespace example --write
+```
+
 - `product-foundation-starter` — repository/root package name;
 - `Product Starter` — application titles;
 - `com.example.product` — Capacitor/Tauri identifiers;
-- `app` — product migration namespace, PostgreSQL names and metric prefix;
+- `app` — product migration/schema namespace and metric prefix;
 - `@app/*` — only when the team wants its own package namespace.
 
 The internal `@product-foundation/*` namespace may remain unchanged.
@@ -128,7 +138,8 @@ The internal `@product-foundation/*` namespace may remain unchanged.
 ## Verification
 
 ```bash
-pnpm check          # formatting, boundaries, TypeScript and tests
+pnpm check          # deterministic static checks and unit tests
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
 pnpm build          # production web/API build
 pnpm smoke:api      # compiled API
 pnpm smoke:compose  # database, migrations, API and worker

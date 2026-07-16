@@ -3,7 +3,8 @@ import {
   createRpcSuccessResponseSchema,
   type RpcCallResult,
   type RpcProcedureContract,
-  rpcErrorResponseSchema
+  rpcErrorResponseSchema,
+  rpcIdempotencyKeySchema
 } from "@product-foundation/rpc";
 import { RpcClientError } from "./rpc-client-error.js";
 
@@ -28,6 +29,21 @@ export async function callRpcProcedure<TInput, TOutput>(
   input: TInput,
   options: RpcCallOptions = {}
 ): Promise<RpcCallResult<TOutput>> {
+  if (contract.kind === "mutation" && options.idempotencyKey === undefined) {
+    throw new RpcClientError({
+      code: "INVALID_INPUT",
+      message: `RPC mutation ${contract.id} requires an idempotency key.`
+    });
+  }
+  if (
+    options.idempotencyKey !== undefined &&
+    !rpcIdempotencyKeySchema.safeParse(options.idempotencyKey).success
+  ) {
+    throw new RpcClientError({
+      code: "INVALID_INPUT",
+      message: `RPC procedure ${contract.id} received an invalid idempotency key.`
+    });
+  }
   const parsedInput = contract.inputSchema.safeParse(input);
   if (!parsedInput.success) {
     throw new RpcClientError({

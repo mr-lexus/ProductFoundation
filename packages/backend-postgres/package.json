@@ -18,7 +18,8 @@
     "build:dependencies": "pnpm --filter @product-foundation/backend-core build",
     "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
     "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm build:dependencies && tsx --test src/postgres.integration.test.ts"
+    "test": "pnpm test:integration",
+    "test:integration": "node ../../scripts/require-test-database.mjs && pnpm build:dependencies && tsx --test src/postgres.integration.test.ts"
   },
   "dependencies": {
     "@product-foundation/backend-core": "workspace:*",

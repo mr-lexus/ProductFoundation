@@ -5,6 +5,7 @@ import { z } from "zod";
 import { executeRpcProcedure } from "./execute-rpc-procedure.js";
 import { RpcApplicationError } from "./rpc-application-error.js";
 import type { RpcHandlerInvoker } from "./rpc-handler.js";
+import { isJsonContentType } from "./rpc-protocol.js";
 
 const mutation = defineRpcProcedure({
   id: "example.create",
@@ -13,6 +14,15 @@ const mutation = defineRpcProcedure({
   method: "POST",
   outputSchema: z.object({ saved: z.boolean() }),
   path: "/rpc/v1/example-create"
+});
+
+test("RPC accepts only a syntactically valid application/json media type", () => {
+  assert.equal(isJsonContentType("application/json"), true);
+  assert.equal(isJsonContentType("Application/JSON; charset=utf-8"), true);
+  assert.equal(isJsonContentType('application/json; charset="utf-8"'), true);
+  assert.equal(isJsonContentType("application/jsonp"), false);
+  assert.equal(isJsonContentType("application/json-evil"), false);
+  assert.equal(isJsonContentType("application/json; broken"), false);
 });
 
 function options(overrides: Record<string, unknown> = {}) {

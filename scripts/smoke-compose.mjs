@@ -38,7 +38,8 @@ function availablePort() {
   });
 }
 
-const docker = process.platform === "win32" ? "docker.exe" : "docker";
+const dockerViaWsl = process.platform === "win32" && process.env.COMPOSE_DOCKER_VIA_WSL === "true";
+const docker = dockerViaWsl ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker";
 const [apiPort, databasePort] = await Promise.all([availablePort(), availablePort()]);
 const environment = {
   ...process.env,
@@ -46,23 +47,84 @@ const environment = {
   COMPOSE_PROJECT_NAME: `foundation-smoke-${process.pid}`,
   DATABASE_PORT: String(databasePort)
 };
+const dockerArguments = dockerViaWsl
+  ? [
+      "env",
+      `API_PORT=${environment.API_PORT}`,
+      `COMPOSE_PROJECT_NAME=${environment.COMPOSE_PROJECT_NAME}`,
+      `DATABASE_PORT=${environment.DATABASE_PORT}`,
+      "docker"
+    ]
+  : [];
 
-try {
-  await run(docker, ["compose", "up", "--build", "--detach", "--wait"], environment);
-  const response = await fetch(`http://127.0.0.1:${apiPort}/rpc/v1/system-ping`, {
-    body: JSON.stringify({ platform: "web" }),
-    headers: { "content-type": "application/json" },
+async function callRpc(apiPort, path, body, headers = {}) {
+  const response = await fetch(`http://127.0.0.1:${apiPort}${path}`, {
+    body: JSON.stringify(body),
+    headers: { "content-type": "application/json", ...headers },
     method: "POST"
   });
   const payload = await response.json();
-  if (!response.ok || payload?.ok !== true || payload?.data?.status !== "ready") {
-    throw new Error(`Compose RPC smoke failed with status ${response.status}.`);
+  if (!response.ok || payload?.ok !== true) {
+    throw new Error(`Compose RPC ${path} failed with status ${response.status}.`);
   }
-  process.stdout.write("Compose API, migration, database and worker smoke passed.\n");
-} finally {
-  await run(docker, ["compose", "down", "--volumes", "--remove-orphans"], environment).catch(
-    (error) => {
-      process.stderr.write(`Compose cleanup failed: ${error.name}.\n`);
+  return payload.data;
+}
+
+async function waitForReferenceDelivery(apiPort, id) {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const probe = await callRpc(apiPort, "/rpc/v1/reference-durable-probe-status", { id });
+    if (probe.deliveredAt !== null) {
+      return probe;
     }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error("Reference durable probe was not delivered by the worker in time.");
+}
+
+try {
+  await run(
+    docker,
+    [...dockerArguments, "compose", "up", "--build", "--detach", "--wait"],
+    environment
   );
+  const ping = await callRpc(apiPort, "/rpc/v1/system-ping", { platform: "web" });
+  if (ping.status !== "ready") {
+    throw new Error("Compose system ping returned an unexpected status.");
+  }
+
+  const id = crypto.randomUUID();
+  const request = { id, value: "compose-durable-proof" };
+  const headers = { "x-idempotency-key": `compose-${id}` };
+  const created = await callRpc(
+    apiPort,
+    "/rpc/v1/reference-durable-probe-create",
+    request,
+    headers
+  );
+  const replayed = await callRpc(
+    apiPort,
+    "/rpc/v1/reference-durable-probe-create",
+    request,
+    headers
+  );
+  if (JSON.stringify(created) !== JSON.stringify(replayed)) {
+    throw new Error("Reference durable mutation did not replay the stored response.");
+  }
+  const delivered = await waitForReferenceDelivery(apiPort, id);
+  if (delivered.value !== request.value) {
+    throw new Error("Reference durable worker projection returned an unexpected value.");
+  }
+
+  process.stdout.write(
+    "Compose API, migrations, idempotent mutation, database, outbox and worker smoke passed.\n"
+  );
+} finally {
+  await run(
+    docker,
+    [...dockerArguments, "compose", "down", "--volumes", "--remove-orphans"],
+    environment
+  ).catch((error) => {
+    process.stderr.write(`Compose cleanup failed: ${error.name}.\n`);
+  });
 }

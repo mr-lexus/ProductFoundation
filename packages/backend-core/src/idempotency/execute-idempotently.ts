@@ -32,14 +32,13 @@ export async function executeIdempotently<TBody>(options: {
   ) => Promise<{ readonly body: TBody; readonly status: number }>;
   readonly idempotencyKey: string;
   readonly input: unknown;
-  readonly leaseMs: number;
   readonly procedureId: string;
   readonly scope: OperationScope;
   readonly store: IdempotencyStore;
   readonly ttlMs: number;
 }): Promise<IdempotentExecutionResult<TBody>> {
-  if (options.leaseMs <= 0 || options.ttlMs < options.leaseMs) {
-    throw new RangeError("Idempotency TTL must be at least as long as its positive lease.");
+  if (options.ttlMs <= 0) {
+    throw new RangeError("Idempotency TTL must be positive.");
   }
   const key: IdempotencyKey = {
     key: options.idempotencyKey,
@@ -47,16 +46,7 @@ export async function executeIdempotently<TBody>(options: {
     requestHash: hashIdempotencyValue(options.input),
     scope: options.scope
   };
-  const ownership = { ownerId: crypto.randomUUID() };
-  const result = await options.store.runAtomically(
-    key,
-    {
-      ...ownership,
-      leaseMs: options.leaseMs,
-      ttlMs: options.ttlMs
-    },
-    options.execute
-  );
+  const result = await options.store.runAtomically(key, { ttlMs: options.ttlMs }, options.execute);
 
   if (result.kind === "conflict") {
     throw new IdempotencyConflictError();

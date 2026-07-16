@@ -54,6 +54,10 @@ output validation откатывает state, outbox и ledger вместе.
 Не открывайте вложенную транзакцию внутри mutation handler. Внешние side effects оформляйте
 как outbox event и обрабатывайте идемпотентным worker handler.
 
+Параллельные дубликаты отсекаются transaction-scoped PostgreSQL advisory try-lock. Долгие операции
+всё равно разбиваются на короткую транзакцию и outbox event: не держите DB transaction во время
+ожидания внешней системы.
+
 ## Global и tenant продукты
 
 `DATA_SCOPE_MODE=global` экспортирует обычные SQL/transaction ports.
@@ -81,20 +85,31 @@ app → pages → widgets → features → entities → shared
 
 HTTP/RPC находится в `shared/api`, server state — в TanStack Query, локальное состояние — в
 React. Web production использует same-origin API; для Capacitor и Tauri обязателен
-`VITE_API_URL`.
+`VITE_API_URL`. Production native build принимает только HTTPS; локальный HTTP для mobile требует
+явного `NATIVE_ALLOW_INSECURE_API=true`.
 
 ## Что переименовать
+
+Сначала просмотрите dry-run, затем примените подтверждённое переименование:
+
+```bash
+pnpm product:rename -- --name "Example Product" --slug example-product \
+  --id com.example.product --namespace example
+pnpm product:rename -- --name "Example Product" --slug example-product \
+  --id com.example.product --namespace example --write
+```
 
 - `product-foundation-starter` — имя репозитория/root package;
 - `Product Starter` — title приложений;
 - `com.example.product` — Capacitor/Tauri identifiers;
-- `app` — migration namespace, PostgreSQL names и metric prefix;
+- `app` — migration/schema namespace и metric prefix;
 - `@app/*` — только если нужен собственный namespace.
 
 ## Проверки
 
 ```bash
 pnpm check
+TEST_DATABASE_URL=postgresql://... pnpm check:ci
 pnpm build
 pnpm smoke:api
 pnpm smoke:compose

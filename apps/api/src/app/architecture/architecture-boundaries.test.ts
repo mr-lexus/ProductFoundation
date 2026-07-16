@@ -111,6 +111,7 @@ function claimedMessage(
     aggregateId: "aggregate-1",
     aggregateType: "architecture-probe",
     attemptCount,
+    claimToken: "87d14c5b-2df5-4fd4-8ed2-2fd26da99fcb",
     eventType: "architecture.probed.v1",
     id,
     occurredAt: new Date("2026-07-12T00:00:00.000Z"),
@@ -199,7 +200,13 @@ test("outbox worker schedules a bounded retry before dead-letter exhaustion", as
   const worker = new OutboxWorker(
     store,
     new Map(),
-    { batchSize: 1, leaseMs: 30_000, maxAttempts: 3, workerId: "worker-1" },
+    {
+      batchSize: 1,
+      leaseMs: 30_000,
+      maxAttempts: 3,
+      random: () => 1,
+      workerId: "worker-1"
+    },
     () => undefined
   );
 

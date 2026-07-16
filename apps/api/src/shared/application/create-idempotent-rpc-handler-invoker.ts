@@ -24,7 +24,6 @@ export type IdempotentRpcMutationHandler<TInput, TOutput> = RpcHandler<
 
 export function createIdempotentRpcHandlerInvoker(options: {
   readonly idempotencyKey: string | undefined;
-  readonly leaseMs?: number;
   readonly scope: OperationScope;
   readonly store: IdempotencyStore;
   readonly ttlMs?: number;
@@ -48,7 +47,6 @@ export function createIdempotentRpcHandlerInvoker(options: {
           },
           idempotencyKey: options.idempotencyKey,
           input,
-          leaseMs: options.leaseMs ?? 30_000,
           procedureId,
           scope: options.scope,
           store: options.store,

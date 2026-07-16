@@ -111,9 +111,9 @@ transaction; ошибка откатывает их вместе. Повтор �
 Внешние effects не выполняются внутри mutation transaction. Mutation записывает
 outbox event, а идемпотентный worker handler выполняет effect.
 
-Синхронная mutation должна завершаться внутри своего lease. Длительные операции
-ставятся в transactional outbox и продолжаются worker-ом с отдельной политикой
-retry/lease.
+Синхронная mutation должна держать транзакцию как можно короче. Параллельный дубликат
+отсекается transaction-scoped advisory try-lock. Длительные операции ставятся в
+transactional outbox и продолжаются worker-ом с отдельной политикой retry/lease.
 
 ## Версионирование
 

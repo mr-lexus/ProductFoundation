@@ -8,12 +8,15 @@
   },
   "scripts": {
     "workspace:status": "echo Product Foundation Starter workspace is ready",
+    "product:rename": "node scripts/rename-product.mjs",
     "dev:api": "pnpm --filter @app/api dev",
     "dev:desktop:frontend": "node scripts/run-frontend-platform.mjs desktop dev --host 127.0.0.1 --port 1420",
     "dev:web": "pnpm --filter @app/web dev",
     "dev:demo": "concurrently -k -n api,web \"pnpm dev:api\" \"pnpm dev:web\"",
     "db:migrate": "pnpm --filter @app/api migrate",
     "db:migrate:dev": "pnpm --filter @app/api migrate:dev",
+    "outbox:inspect:dev": "pnpm --filter @app/api outbox:admin:dev inspect",
+    "outbox:replay:dev": "pnpm --filter @app/api outbox:admin:dev replay",
     "build:foundation": "pnpm --filter @product-foundation/rpc build && pnpm --filter @product-foundation/rpc-client build && pnpm --filter @product-foundation/rpc-server build && pnpm --filter @product-foundation/backend-core build && pnpm --filter @product-foundation/backend-postgres build",
     "build:contracts": "pnpm build:foundation && pnpm --filter @app/contracts build",
     "build:api": "pnpm --filter @app/api build",
@@ -32,15 +35,22 @@
     "cap:open:android": "pnpm --filter @app/mobile cap:open:android",
     "cap:open:ios": "pnpm --filter @app/mobile cap:open:ios",
     "check:architecture": "node scripts/check-architecture.mjs",
+    "check:hygiene": "node scripts/check-repository-hygiene.mjs",
     "check:static": "biome check .",
     "check:types": "pnpm build:contracts && pnpm --filter @product-foundation/rpc check && pnpm --filter @product-foundation/rpc-client check && pnpm --filter @product-foundation/rpc-server check && pnpm --filter @product-foundation/backend-core check && pnpm --filter @product-foundation/backend-postgres check && pnpm --filter @app/contracts check && pnpm --filter @app/frontend-app check && pnpm --filter @app/web check && pnpm --filter @app/mobile check && pnpm --filter @app/api check",
-    "check:native": "pnpm --filter @app/mobile check && pnpm --filter @app/desktop check",
+    "check:native": "pnpm check:native-security && pnpm --filter @app/mobile check && pnpm --filter @app/desktop check",
+    "check:native-security": "node scripts/check-native-security.mjs",
     "format": "biome check --write .",
-    "test": "pnpm --filter @product-foundation/rpc-client test && pnpm --filter @product-foundation/rpc-server test && pnpm --filter @product-foundation/backend-core test && pnpm --filter @product-foundation/backend-postgres test && pnpm --filter @app/frontend-app test && pnpm --filter @app/api test",
-    "check": "pnpm check:static && pnpm check:architecture && pnpm check:types && pnpm test"
+    "test": "pnpm test:unit",
+    "test:unit": "pnpm --filter @product-foundation/rpc-client test && pnpm --filter @product-foundation/rpc-server test && pnpm --filter @product-foundation/backend-core test && pnpm --filter @app/frontend-app test && pnpm --filter @app/api test:unit",
+    "test:tooling": "node --test scripts/read-imports.test.mjs",
+    "test:integration": "pnpm --filter @product-foundation/backend-postgres test:integration && pnpm --filter @app/api test:integration",
+    "check": "pnpm check:hygiene && pnpm check:static && pnpm check:architecture && pnpm check:types && pnpm test:tooling && pnpm test:unit",
+    "check:ci": "pnpm check && pnpm test:integration"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.3",
-    "concurrently": "^9.0.0"
+    "concurrently": "^9.0.0",
+    "typescript": "^5.8.0"
   }
 }

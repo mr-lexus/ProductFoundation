@@ -2,8 +2,10 @@
 
 ## Статус
 
-Foundation готов к копированию после прохождения acceptance-команд ниже. Он не
-содержит предметную область, identity provider или дизайн-систему.
+Foundation имеет статус public beta и готов к копированию после прохождения acceptance-команд
+ниже. Статус production-ready baseline возвращается только после публикации reference durable
+flow и зелёного полного CI. Foundation не содержит предметную область, identity provider или
+дизайн-систему.
 
 ## Что гарантирует foundation
 
@@ -14,7 +16,7 @@ Foundation готов к копированию после прохождени�
   одной mutation transaction;
 - PostgreSQL 17 transactions, namespaced migrations и product migration slot;
 - global scope или tenant execution context с обязательным forced-RLS contract;
-- transactional outbox с lease ownership, retry, dead letters и retention;
+- transactional outbox с expiring lease, per-claim fencing token, retry, dead letters и retention;
 - API/worker health, Prometheus metrics и safe structured diagnostics;
 - реальные web/mobile/desktop build contexts и Tauri CSP;
 - Docker image, full Compose smoke и CI platform-shell job.
@@ -24,14 +26,16 @@ Foundation готов к копированию после прохождени�
 ```bash
 pnpm install --frozen-lockfile
 pnpm check
+TEST_DATABASE_URL=postgresql://... pnpm check:ci
 pnpm build
 pnpm smoke:api
 pnpm smoke:compose
 pnpm check:native
 ```
 
-`check:native` требует локальный Rust/Tauri toolchain. CI устанавливает Linux
-system dependencies и дополнительно выполняет Tauri build без bundling.
+`check:ci` требует PostgreSQL и не допускает silently skipped integration tests.
+`check:native` требует локальный Rust/Tauri toolchain. CI устанавливает Linux system
+dependencies и дополнительно выполняет Tauri build без bundling.
 
 ## Что выбирает продукт
 

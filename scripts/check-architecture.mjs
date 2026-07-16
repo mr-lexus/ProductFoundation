@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { readImports } from "./read-imports.mjs";
 
 const workspaceRoot = process.cwd();
 const appsRoot = path.join(workspaceRoot, "apps");
@@ -50,21 +51,6 @@ function relativeFromWorkspace(filePath) {
 
 function addViolation(filePath, message) {
   violations.push(`${relativeFromWorkspace(filePath)}: ${message}`);
-}
-
-function readImports(source) {
-  const imports = [];
-  const importPattern = /(?:import|export)\s+(?:type\s+)?(?:[^"';]*?\sfrom\s+)?["']([^"']+)["']/g;
-  for (const match of source.matchAll(importPattern)) {
-    imports.push(match[1]);
-  }
-
-  const dynamicImportPattern = /(?:import|require)\s*\(\s*["']([^"']+)["']\s*\)/g;
-  for (const match of source.matchAll(dynamicImportPattern)) {
-    imports.push(match[1]);
-  }
-
-  return imports;
 }
 
 function resolveRelativeImport(filePath, specifier) {

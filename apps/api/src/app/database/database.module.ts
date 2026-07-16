@@ -13,7 +13,6 @@ import {
   PostgresOutboxStore,
   PostgresTenantTransactionRunner
 } from "@product-foundation/backend-postgres";
-import type { DatabaseRuntimeConfig } from "../config/load-api-config.js";
 import {
   DATABASE_HEALTH,
   IDEMPOTENCY_STORE,
@@ -21,7 +20,8 @@ import {
   SQL_EXECUTOR,
   TENANT_TRANSACTION_RUNNER,
   TRANSACTION_RUNNER
-} from "./database.tokens.js";
+} from "../../shared/application/database.tokens.js";
+import type { DatabaseRuntimeConfig } from "../config/load-api-config.js";
 
 const POSTGRES_DATABASE = Symbol("POSTGRES_DATABASE");
 const TENANT_RUNTIME_ROLE_SAFETY = Symbol("TENANT_RUNTIME_ROLE_SAFETY");

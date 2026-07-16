@@ -2,7 +2,7 @@
 
 ## Supported version
 
-Security fixes are applied to the current `master` branch. Copied product repositories own
+Security fixes are applied to the current default branch. Copied product repositories own
 their deployed versions and must maintain their own support policy.
 
 ## Reporting a vulnerability

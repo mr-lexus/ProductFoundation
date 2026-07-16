@@ -16,11 +16,15 @@
     "dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx --watch src/server.ts",
     "migrate": "node --enable-source-maps dist/app/database/migrate.js",
     "migrate:dev": "node --env-file-if-exists=../../.env --import tsx src/app/database/migrate.ts",
+    "outbox:admin": "node --enable-source-maps dist/app/worker/outbox-admin.js",
+    "outbox:admin:dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx src/app/worker/outbox-admin.ts",
     "start": "node --enable-source-maps dist/server.js",
     "worker": "node --enable-source-maps dist/worker.js",
     "worker:dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx src/worker.ts",
     "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts src/shared/application/durable-rpc-mutation.integration.test.ts"
+    "test": "pnpm test:unit",
+    "test:unit": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts",
+    "test:integration": "node ../../scripts/require-test-database.mjs && pnpm build:dependencies && tsx --test --test-concurrency=1 src/shared/application/durable-rpc-mutation.integration.test.ts src/app/http/reference-durable-probe.integration.test.ts"
   },
   "dependencies": {
     "@fastify/helmet": "^13.1.0",

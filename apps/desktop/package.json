@@ -4,10 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "tauri build",
-    "build:ci": "tauri build --no-bundle",
+    "build": "node ../../scripts/run-tauri.mjs build",
+    "build:ci": "node ../../scripts/run-tauri.mjs build --no-bundle",
     "check": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "dev": "tauri dev"
+    "dev": "node ../../scripts/run-tauri.mjs dev"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

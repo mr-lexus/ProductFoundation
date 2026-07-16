@@ -17,6 +17,7 @@ interface OutboxRow {
   readonly aggregate_id: string;
   readonly aggregate_type: string;
   readonly attempt_count: number;
+  readonly claim_token: string;
   readonly event_type: string;
   readonly id: string;
   readonly occurred_at: Date;
@@ -36,6 +37,7 @@ function mapMessage(row: OutboxRow): ClaimedOutboxMessage {
     aggregateId: row.aggregate_id,
     aggregateType: row.aggregate_type,
     attemptCount: row.attempt_count,
+    claimToken: row.claim_token,
     eventType: row.event_type,
     id: row.id,
     occurredAt: row.occurred_at,
@@ -83,7 +85,7 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
           WHERE processed_at IS NULL
             AND dead_lettered_at IS NULL
             AND available_at <= now()
-            AND (locked_at IS NULL OR locked_at < now() - ($2 * interval '1 millisecond'))
+            AND (locked_until IS NULL OR locked_until <= now())
           ORDER BY available_at, occurred_at
           FOR UPDATE SKIP LOCKED
           LIMIT $1
@@ -91,6 +93,8 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
         UPDATE platform.outbox_messages AS message
         SET locked_at = now(),
             locked_by = $3,
+            locked_until = now() + ($2 * interval '1 millisecond'),
+            claim_token = gen_random_uuid(),
             attempt_count = message.attempt_count + 1
         FROM candidates
         WHERE message.id = candidates.id
@@ -101,13 +105,14 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
     });
   }
 
-  async complete(messageId: string, workerId: string) {
+  async complete(messageId: string, claimToken: string, workerId: string) {
     const result = await this.sql.query(
       `UPDATE platform.outbox_messages
-       SET processed_at = now(), locked_at = NULL, locked_by = NULL, last_error = NULL
-       WHERE id = $1 AND locked_by = $2 AND processed_at IS NULL
-         AND dead_lettered_at IS NULL`,
-      [messageId, workerId]
+       SET processed_at = now(), locked_at = NULL, locked_by = NULL,
+           locked_until = NULL, claim_token = NULL, last_error = NULL
+       WHERE id = $1 AND claim_token = $2 AND locked_by = $3
+         AND locked_until > now() AND processed_at IS NULL AND dead_lettered_at IS NULL`,
+      [messageId, claimToken, workerId]
     );
     if (result.rowCount !== 1) {
       throw new Error("Outbox completion lost ownership of the message.");
@@ -116,6 +121,7 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
 
   async fail(options: {
     readonly deadLetter: boolean;
+    readonly claimToken: string;
     readonly error: string;
     readonly messageId: string;
     readonly retryDelayMs: number;
@@ -123,14 +129,23 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
   }) {
     const result = await this.sql.query(
       `UPDATE platform.outbox_messages
-       SET available_at = now() + ($3 * interval '1 millisecond'),
-           dead_lettered_at = CASE WHEN $4 THEN now() ELSE NULL END,
-           last_error = $5,
+       SET available_at = now() + ($4 * interval '1 millisecond'),
+           dead_lettered_at = CASE WHEN $5 THEN now() ELSE NULL END,
+           last_error = $6,
            locked_at = NULL,
-           locked_by = NULL
-       WHERE id = $1 AND locked_by = $2 AND processed_at IS NULL
-         AND dead_lettered_at IS NULL`,
-      [options.messageId, options.workerId, options.retryDelayMs, options.deadLetter, options.error]
+           locked_by = NULL,
+           locked_until = NULL,
+           claim_token = NULL
+       WHERE id = $1 AND claim_token = $2 AND locked_by = $3
+         AND locked_until > now() AND processed_at IS NULL AND dead_lettered_at IS NULL`,
+      [
+        options.messageId,
+        options.claimToken,
+        options.workerId,
+        options.retryDelayMs,
+        options.deadLetter,
+        options.error
+      ]
     );
     if (result.rowCount !== 1) {
       throw new Error("Outbox failure handling lost ownership of the message.");
@@ -180,5 +195,17 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
       [options.processedBefore, options.deadLetteredBefore, options.batchSize]
     );
     return result.rowCount ?? 0;
+  }
+
+  async requeueDeadLetter(messageId: string) {
+    const result = await this.sql.query(
+      `UPDATE platform.outbox_messages
+       SET available_at = now(), attempt_count = 0, dead_lettered_at = NULL,
+           last_error = NULL, locked_at = NULL, locked_by = NULL,
+           locked_until = NULL, claim_token = NULL
+       WHERE id = $1 AND processed_at IS NULL AND dead_lettered_at IS NOT NULL`,
+      [messageId]
+    );
+    return result.rowCount === 1;
   }
 }

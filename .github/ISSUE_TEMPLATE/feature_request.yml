@@ -1,0 +1,33 @@
+name: Architecture or feature proposal
+description: Propose a reusable, product-neutral capability.
+title: "[Proposal]: "
+labels: [proposal, triage]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the concrete product-neutral need and current limitation.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and constraints
+      description: Include measured need, affected runtimes, compatibility, security, and operations.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed boundary
+      description: Explain ownership, dependency direction, alternatives, and why this belongs in foundation.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope confirmation
+      options:
+        - label: This proposal is product-neutral and does not add speculative infrastructure.
+          required: true

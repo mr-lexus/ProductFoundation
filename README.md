@@ -5,8 +5,10 @@ mobile, and desktop applications on a shared TypeScript stack.
 
 [Русская версия](./README-RU.md)
 
-**Maturity:** production-ready technical baseline. A copied product still has to complete
-the product security and operations checklist described below before serving real traffic.
+**Maturity:** production-oriented public beta. The foundation is designed for production use,
+but remains beta until the reference durable flow and all acceptance jobs pass on the public
+repository. A copied product still has to complete the product security and operations checklist
+described below before serving real traffic.
 
 ## What it is
 
@@ -28,6 +30,7 @@ product layer, and start building.
 - transactionally atomic PostgreSQL idempotency for mutations;
 - global scope or tenant execution context with mandatory forced-RLS verification;
 - transactional outbox, retry, dead-letter, and retention;
+- an executable durable reference mutation covered over HTTP and in Compose;
 - a separate background worker with health checks and Prometheus metrics;
 - request IDs, CORS, Helmet, rate/body limits, and safe structured logs;
 - Biome, TypeScript, unit/integration tests, and architecture gates;
@@ -87,7 +90,8 @@ pnpm dev:demo
 ## Repository verification
 
 ```bash
-pnpm check          # Biome, boundaries, TypeScript, and tests
+pnpm check          # deterministic static checks and unit tests
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
 pnpm build          # production web and API
 pnpm smoke:api      # compiled API smoke test
 pnpm smoke:compose  # PostgreSQL, migrations, API, and worker
@@ -100,7 +104,7 @@ runs on pushes/PRs and weekly, and Dependabot maintains npm, Cargo and Actions r
 
 ## Starting a new product
 
-1. Rename the placeholder identifiers and migration namespace.
+1. Preview and apply the safe rename command documented in the developer guide.
 2. Choose `DATA_SCOPE_MODE=global` or `tenant`.
 3. Add the first contract to `packages/contracts`.
 4. Create a backend capability in `apps/api/src/modules`.
@@ -139,6 +143,8 @@ integration tests.
 - [Developer guide](./DEVELOPER_GUIDE.md)
 - [Architecture overview](./docs/architecture/README.md)
 - [Foundation readiness](./docs/architecture/foundation-readiness.md)
+- [Executable durable reference flow](./docs/architecture/reference-durable-flow.md)
+- [Threat model](./docs/architecture/threat-model.md)
 - [Architecture decisions](./docs/adr)
 - [AI development rules](./AGENTS.md)
 - [Contributing](./CONTRIBUTING.md)

@@ -4,6 +4,7 @@ export interface OutboxWorkerOptions {
   readonly batchSize: number;
   readonly leaseMs: number;
   readonly maxAttempts: number;
+  readonly random?: () => number;
   readonly workerId: string;
 }
 
@@ -25,9 +26,10 @@ function errorName(error: unknown) {
   return error instanceof Error ? error.name.slice(0, 200) : "UnknownError";
 }
 
-function retryDelay(attemptCount: number) {
+function retryDelay(attemptCount: number, random: () => number) {
   const exponent = Math.max(0, Math.min(attemptCount - 1, 10));
-  return Math.min(60_000, 250 * 2 ** exponent);
+  const ceiling = Math.min(60_000, 250 * 2 ** exponent);
+  return Math.max(1, Math.floor(ceiling * (0.5 + random() / 2)));
 }
 
 export class OutboxWorker {
@@ -75,15 +77,16 @@ export class OutboxWorker {
         idempotencyKey: message.id,
         ...(signal === undefined ? {} : { signal })
       });
-      await this.store.complete(message.id, this.options.workerId);
+      await this.store.complete(message.id, message.claimToken, this.options.workerId);
       this.observer.deliveryCompleted(message.eventType);
     } catch (error) {
       const deadLetter = message.attemptCount >= this.options.maxAttempts;
       await this.store.fail({
         deadLetter,
+        claimToken: message.claimToken,
         error: errorName(error),
         messageId: message.id,
-        retryDelayMs: retryDelay(message.attemptCount),
+        retryDelayMs: retryDelay(message.attemptCount, this.options.random ?? Math.random),
         workerId: this.options.workerId
       });
       this.observer.deliveryFailed(message.eventType, deadLetter);

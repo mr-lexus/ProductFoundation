@@ -34,11 +34,17 @@ Compose-only variables:
 - `API_PORT` publishes API port `3001` on a chosen host port;
 - `DATABASE_PORT` publishes PostgreSQL port `5432` on a chosen host port;
 - `COMPOSE_PROJECT_NAME` isolates containers and volumes between copied projects.
+- `COMPOSE_DOCKER_VIA_WSL=true` makes the Windows smoke runner invoke Docker through
+  `wsl.exe`; it is a local toolchain compatibility switch, not runtime configuration.
 
 Frontend build variables:
 
 - `VITE_API_URL` is optional for web (same-origin production default) and required
-  for mobile/desktop;
+  for mobile/desktop. Production native builds require HTTPS;
+- `NATIVE_ALLOW_INSECURE_API=true` is an explicit local-only exception for an HTTP
+  API during a mobile build and must not be set in production CI;
+- `CAP_LIVE_RELOAD=true` must be set together with `CAP_SERVER_URL`; the latter must
+  be one exact `http:` or `https:` origin and is never accepted implicitly;
 - `VITE_APP_PLATFORM` and `VITE_APP_TITLE` are set by the platform build script.
 
 Production secrets come from the deployment secret manager. `.env.example` is

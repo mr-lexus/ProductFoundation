@@ -19,6 +19,12 @@
 Migrations must be backward compatible with both old and new application
 versions during the rollout window.
 
+The pre-stable foundation migrations `0003_atomic_idempotency.sql` and
+`0004_outbox_claim_tokens.sql` are explicit beta upgrade exceptions: quiesce old API/worker
+processes, run migrations, and then deploy the new runtime. They must not be applied as a rolling
+upgrade. Once a stable release exists, exceptions require a dedicated ADR and reviewed maintenance
+window; ordinary migrations remain expand/contract compatible.
+
 Migration filenames only need to be unique inside their namespace. Never reuse
 a namespace for another product and never change an applied migration checksum.
 
@@ -54,8 +60,8 @@ data is disposable and is not a backup strategy.
 - outbox lag rising: stop adding worker replicas blindly; inspect handler error
   rate, locks and downstream health.
 - dead letters: preserve rows within the configured retention window, fix the
-  idempotent handler, then replay through a reviewed product tool. Never edit
-  payloads in place.
+  idempotent handler, inspect aggregate counts, then replay one reviewed message.
+  Never edit payloads in place.
 - suspected tenant leak: disable affected procedure, preserve audit/log evidence,
   rotate exposed credentials and start the security incident process.
 
@@ -70,6 +76,19 @@ Before real traffic, use these as review targets rather than contractual SLOs:
 - zero unresolved tenant-isolation failures when `DATA_SCOPE_MODE=tenant`.
 
 Alerts must link here or to a more specific runbook and identify an owner.
+
+## Dead-letter inspection and replay
+
+The admin command deliberately exposes aggregate counts only and requires an exact message UUID
+plus an explicit confirmation flag for replay:
+
+```bash
+DATABASE_URL=postgresql://... pnpm outbox:inspect:dev
+DATABASE_URL=postgresql://... pnpm outbox:replay:dev -- <message-uuid> --confirm
+```
+
+Confirm the handler fix is deployed and idempotent, record the incident/change reference, replay
+one message, and watch dead-letter count, failure rate and downstream effects before continuing.
 
 ## Dependency build scripts
 

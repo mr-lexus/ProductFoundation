@@ -27,3 +27,7 @@ and verification evidence. Do not include secrets, generated native projects, bu
 or unrelated formatting changes.
 
 Security reports follow [SECURITY.md](./SECURITY.md), not the public issue tracker.
+
+Use the pull-request template. Mark every check truthfully, include commands and outcomes, and call
+out any verification that could not run. A skipped database integration suite is not evidence that
+database behavior passed.
