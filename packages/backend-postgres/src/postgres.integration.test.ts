@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { globalScope, hashIdempotencyPayload } from "@product-foundation/backend-core";
+import {
+  createTenantId,
+  globalScope,
+  hashIdempotencyPayload,
+  type TransactionRunner
+} from "@product-foundation/backend-core";
 import { foundationMigrationsDirectory } from "./index.js";
 import { PostgresDatabase } from "./postgres-database.js";
 import { PostgresIdempotencyStore } from "./postgres-idempotency-store.js";
 import { PostgresOutboxStore } from "./postgres-outbox-store.js";
+import { PostgresTenantTransactionRunner } from "./postgres-tenant-transaction-runner.js";
 import { runSqlMigrations } from "./run-sql-migrations.js";
-import { assertTenantRelationsSecure } from "./tenant-isolation.js";
+import { assertTenantRelationsSecure, assertTenantRuntimeRoleSafe } from "./tenant-isolation.js";
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationTest = databaseUrl === undefined ? test.skip : test;
@@ -31,6 +37,9 @@ integrationTest(
       maxConnections: 2,
       url: databaseUrl
     });
+    const runtimeRole = `foundation_runtime_${crypto.randomUUID().replaceAll("-", "")}`;
+    const tenantProcedureId = "architecture.tenant-probe";
+    let runtimeRoleCreated = false;
 
     try {
       await database.check();
@@ -64,6 +73,123 @@ integrationTest(
       await assertTenantRelationsSecure(database, [
         { schema: "platform", table: "tenant_isolation_probe" }
       ]);
+
+      await database.query(`
+        CREATE ROLE ${runtimeRole}
+          NOLOGIN
+          NOSUPERUSER
+          NOCREATEDB
+          NOCREATEROLE
+          NOINHERIT
+          NOBYPASSRLS
+      `);
+      runtimeRoleCreated = true;
+      await database.query(`GRANT USAGE ON SCHEMA platform TO ${runtimeRole}`);
+      await database.query(
+        `GRANT SELECT, INSERT, UPDATE, DELETE
+         ON platform.idempotency_records, platform.tenant_isolation_probe
+         TO ${runtimeRole}`
+      );
+
+      const runtimeTransactions: TransactionRunner = {
+        run: (work, options) =>
+          database.run(async (transaction) => {
+            await transaction.query(`SET LOCAL ROLE ${runtimeRole}`);
+            return work(transaction);
+          }, options)
+      };
+      await runtimeTransactions.run((transaction) => assertTenantRuntimeRoleSafe(transaction));
+
+      const firstTenantScope = {
+        kind: "tenant" as const,
+        tenantId: createTenantId("44ba2ed7-6a30-48f3-8e8b-67f89e495676")
+      };
+      const secondTenantScope = {
+        kind: "tenant" as const,
+        tenantId: createTenantId("bf031bb7-4652-4ca4-8a82-61597c98c461")
+      };
+      const tenantIdempotency = new PostgresIdempotencyStore(runtimeTransactions);
+      const tenantTransactions = new PostgresTenantTransactionRunner(runtimeTransactions);
+      const tenantRowId = crypto.randomUUID();
+
+      assert.deepEqual(
+        await tenantIdempotency.runAtomically(
+          {
+            key: `tenant-success-${crypto.randomUUID()}`,
+            procedureId: tenantProcedureId,
+            requestHash: hashIdempotencyPayload('{"value":"tenant-success"}'),
+            scope: firstTenantScope
+          },
+          {
+            leaseMs: 30_000,
+            ownerId: crypto.randomUUID(),
+            ttlMs: 60_000
+          },
+          async (transaction) => {
+            const installedScope = await transaction.query<{ tenant_id: string }>(
+              "SELECT current_setting('app.tenant_id') AS tenant_id"
+            );
+            assert.equal(installedScope.rows[0]?.tenant_id, firstTenantScope.tenantId);
+            await transaction.query(
+              `INSERT INTO platform.tenant_isolation_probe (id, tenant_id)
+               VALUES ($1, $2)`,
+              [tenantRowId, firstTenantScope.tenantId]
+            );
+            return { body: { id: tenantRowId }, status: 200 };
+          }
+        ),
+        {
+          kind: "executed",
+          responseBody: { id: tenantRowId },
+          responseStatus: 200
+        }
+      );
+
+      const visibleToFirstTenant = await tenantTransactions.run(firstTenantScope, (transaction) =>
+        transaction.query<{ count: string }>(
+          "SELECT count(*)::text AS count FROM platform.tenant_isolation_probe"
+        )
+      );
+      const visibleToSecondTenant = await tenantTransactions.run(secondTenantScope, (transaction) =>
+        transaction.query<{ count: string }>(
+          "SELECT count(*)::text AS count FROM platform.tenant_isolation_probe"
+        )
+      );
+      assert.equal(visibleToFirstTenant.rows[0]?.count, "1");
+      assert.equal(visibleToSecondTenant.rows[0]?.count, "0");
+
+      const rejectedIdempotencyKey = `tenant-rejected-${crypto.randomUUID()}`;
+      await assert.rejects(
+        tenantIdempotency.runAtomically(
+          {
+            key: rejectedIdempotencyKey,
+            procedureId: tenantProcedureId,
+            requestHash: hashIdempotencyPayload('{"value":"cross-tenant"}'),
+            scope: secondTenantScope
+          },
+          {
+            leaseMs: 30_000,
+            ownerId: crypto.randomUUID(),
+            ttlMs: 60_000
+          },
+          async (transaction) => {
+            await transaction.query(
+              `INSERT INTO platform.tenant_isolation_probe (id, tenant_id)
+               VALUES ($1, $2)`,
+              [crypto.randomUUID(), firstTenantScope.tenantId]
+            );
+            return { body: { ok: true }, status: 200 };
+          }
+        ),
+        /row-level security/
+      );
+      const rejectedLedger = await database.query<{ count: string }>(
+        `SELECT count(*)::text AS count
+         FROM platform.idempotency_records
+         WHERE procedure_id = $1 AND idempotency_key = $2`,
+        [tenantProcedureId, rejectedIdempotencyKey]
+      );
+      assert.equal(rejectedLedger.rows[0]?.count, "0");
 
       await assert.rejects(
         database.run(async (transaction) => {
@@ -252,8 +378,15 @@ integrationTest(
       );
       assert.equal(delivered.rows[0]?.processed, true);
     } finally {
+      await database.query("DELETE FROM platform.idempotency_records WHERE procedure_id = $1", [
+        tenantProcedureId
+      ]);
       await database.query("DROP TABLE IF EXISTS platform.tenant_isolation_probe");
       await database.query("DROP TABLE IF EXISTS platform.architecture_transaction_probe");
+      if (runtimeRoleCreated) {
+        await database.query(`DROP OWNED BY ${runtimeRole}`);
+        await database.query(`DROP ROLE ${runtimeRole}`);
+      }
       await database.close();
     }
   }

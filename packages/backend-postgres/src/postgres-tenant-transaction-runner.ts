@@ -6,6 +6,7 @@ import type {
   TransactionOptions,
   TransactionRunner
 } from "@product-foundation/backend-core";
+import { installTenantTransactionContext } from "./tenant-transaction-context.js";
 
 function scopeExecutor(transaction: SqlExecutor, scope: TenantScope): TenantSqlExecutor {
   return {
@@ -23,8 +24,7 @@ export class PostgresTenantTransactionRunner implements TenantTransactionRunner 
     options?: TransactionOptions
   ) {
     return this.transactions.run(async (transaction) => {
-      await transaction.query("SET LOCAL row_security = on");
-      await transaction.query("SELECT set_config('app.tenant_id', $1, true)", [scope.tenantId]);
+      await installTenantTransactionContext(transaction, scope);
       return work(scopeExecutor(transaction, scope));
     }, options);
   }

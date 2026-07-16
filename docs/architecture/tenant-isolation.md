@@ -4,6 +4,11 @@
 transaction-local `app.tenant_id`. This context is necessary, but it is not a database
 security boundary by itself.
 
+Durable RPC mutations install the same transaction-local tenant context from their
+`OperationScope` inside the idempotency transaction before product state or outbox work runs.
+The ledger, product changes, validated response and outbox therefore remain one atomic
+tenant-scoped transaction; mutation handlers must not open a nested tenant transaction.
+
 Every tenant-owned product table must satisfy all of the following before the product is
 considered tenant-safe:
 

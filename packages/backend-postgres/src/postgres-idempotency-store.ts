@@ -7,6 +7,7 @@ import type {
   TransactionRunner
 } from "@product-foundation/backend-core";
 import { serializeOperationScope } from "@product-foundation/backend-core";
+import { installTenantTransactionContext } from "./tenant-transaction-context.js";
 
 interface IdempotencyRow {
   readonly lock_active: boolean;
@@ -34,6 +35,10 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
     ) => Promise<{ readonly body: TBody; readonly status: number }>
   ): Promise<IdempotencyStoreResult<TBody>> {
     return this.transactions.run(async (transaction) => {
+      if (key.scope.kind === "tenant") {
+        await installTenantTransactionContext(transaction, key.scope);
+      }
+
       await transaction.query(
         `DELETE FROM platform.idempotency_records
          WHERE scope_id = $1 AND procedure_id = $2 AND idempotency_key = $3
