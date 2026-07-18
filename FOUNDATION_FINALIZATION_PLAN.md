@@ -95,11 +95,12 @@ pushed to the newly configured GitHub repository. Local Compose could not start 
 daemon is unavailable; Rust checks require the CI toolchain.
 
 First remote run evidence (2026-07-18): `verify` passed. The remaining failures were identified, not
-blindly rerun: Android used Java 11 although its Gradle plugin requires Java 17; the tooling test
-assumed the canonical placeholders still existed after `rename-smoke`; and the private repository
-does not have GitHub Code Security, so native dependency review and CodeQL upload are unavailable.
-The fixed workflow retains those native checks for public repositories and uses a high-severity
-lockfile audit for the private-repository dependency gate.
+blindly rerun: Android used Java 11 although the Gradle plugin requires at least Java 17 and the
+installed Capacitor 8 Android library compiles for Java 21; the tooling test assumed the canonical
+placeholders still existed after `rename-smoke`; and the private repository does not have GitHub Code
+Security, so native dependency review and CodeQL upload are unavailable. The fixed workflow retains
+those native checks for public repositories and uses a high-severity lockfile audit for the
+private-repository dependency gate.
 
 Sequencing note (2026-07-18): the version is committed before the remote run so the green CI evidence
 and immutable tag can identify the same release SHA.
