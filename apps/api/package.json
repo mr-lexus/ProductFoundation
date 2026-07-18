@@ -12,8 +12,10 @@
   ],
   "scripts": {
     "build:dependencies": "pnpm --filter @app/contracts build && pnpm --filter @product-foundation/backend-postgres build && pnpm --filter @product-foundation/rpc-server build",
-    "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
-    "dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx --watch src/server.ts",
+    "build": "pnpm build:dependencies && pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
+    "dev": "pnpm build:dependencies && pnpm dev:runtime",
+    "dev:runtime": "node --env-file-if-exists=../../.env --import tsx --watch src/server.ts",
     "migrate": "node --enable-source-maps dist/app/database/migrate.js",
     "migrate:dev": "node --env-file-if-exists=../../.env --import tsx src/app/database/migrate.ts",
     "outbox:admin": "node --enable-source-maps dist/app/worker/outbox-admin.js",
@@ -21,9 +23,11 @@
     "start": "node --enable-source-maps dist/server.js",
     "worker": "node --enable-source-maps dist/worker.js",
     "worker:dev": "pnpm build:dependencies && node --env-file-if-exists=../../.env --import tsx src/worker.ts",
-    "check": "pnpm build:dependencies && tsc --noEmit",
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit",
     "test": "pnpm test:unit",
-    "test:unit": "pnpm build:dependencies && tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts",
+    "test:unit": "pnpm build:dependencies && pnpm test:unit:package",
+    "test:unit:package": "tsx --test src/app/http/create-nest-application.test.ts src/app/architecture/architecture-boundaries.test.ts src/shared/application/create-idempotent-rpc-handler-invoker.test.ts",
     "test:integration": "node ../../scripts/require-test-database.mjs && pnpm build:dependencies && tsx --test --test-concurrency=1 src/shared/application/durable-rpc-mutation.integration.test.ts src/app/http/reference-durable-probe.integration.test.ts"
   },
   "dependencies": {

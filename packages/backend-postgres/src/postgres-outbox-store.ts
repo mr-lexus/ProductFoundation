@@ -9,6 +9,7 @@ import type {
   TransactionRunner
 } from "@product-foundation/backend-core";
 import {
+  assertDurableJsonValue,
   deserializeOperationScope,
   serializeOperationScope
 } from "@product-foundation/backend-core";
@@ -54,6 +55,7 @@ export class PostgresOutboxStore implements OutboxStore, OutboxWriter, OutboxMai
   ) {}
 
   async append(transaction: SqlExecutor, event: OutboxEvent) {
+    assertDurableJsonValue(event.payload, `Outbox payload for ${event.eventType}`);
     await transaction.query(
       `INSERT INTO platform.outbox_messages (
         id, scope_id, aggregate_type, aggregate_id, event_type,

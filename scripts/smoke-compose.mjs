@@ -41,10 +41,11 @@ function availablePort() {
 const dockerViaWsl = process.platform === "win32" && process.env.COMPOSE_DOCKER_VIA_WSL === "true";
 const docker = dockerViaWsl ? "wsl.exe" : process.platform === "win32" ? "docker.exe" : "docker";
 const [apiPort, databasePort] = await Promise.all([availablePort(), availablePort()]);
+const projectSuffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
 const environment = {
   ...process.env,
   API_PORT: String(apiPort),
-  COMPOSE_PROJECT_NAME: `foundation-smoke-${process.pid}`,
+  COMPOSE_PROJECT_NAME: `foundation-smoke-${projectSuffix}`,
   DATABASE_PORT: String(databasePort)
 };
 const dockerArguments = dockerViaWsl
@@ -85,7 +86,7 @@ async function waitForReferenceDelivery(apiPort, id) {
 try {
   await run(
     docker,
-    [...dockerArguments, "compose", "up", "--build", "--detach", "--wait"],
+    [...dockerArguments, "compose", "up", "--build", "--detach", "--wait", "--wait-timeout", "180"],
     environment
   );
   const ping = await callRpc(apiPort, "/rpc/v1/system-ping", { platform: "web" });
@@ -119,6 +120,17 @@ try {
   process.stdout.write(
     "Compose API, migrations, idempotent mutation, database, outbox and worker smoke passed.\n"
   );
+} catch (error) {
+  process.stderr.write(
+    "Compose smoke failed; collecting service status and logs before cleanup.\n"
+  );
+  await run(docker, [...dockerArguments, "compose", "ps", "--all"], environment).catch(
+    () => undefined
+  );
+  await run(docker, [...dockerArguments, "compose", "logs", "--no-color"], environment).catch(
+    () => undefined
+  );
+  throw error;
 } finally {
   await run(
     docker,

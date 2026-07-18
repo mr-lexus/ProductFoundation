@@ -21,6 +21,10 @@ It is not a collection of preinstalled libraries and it is not a ready-made
 SaaS product. It is the technical foundation: copy the repository, add the
 product layer, and start building.
 
+Releases are template snapshots, not automatic framework upgrades. A copied product owns its
+foundation code and reviews later fixes explicitly; see the
+[template lifecycle](./docs/architecture/template-lifecycle.md).
+
 ## What is included
 
 - one React frontend shared by browser, Capacitor, and Tauri;
@@ -127,6 +131,13 @@ repository and its rules.
 - a design system or finished UI;
 - cloud-specific deployment or a secrets manager;
 - external search, queue, storage, or realtime services.
+
+## Known beta limitations
+
+- copied repositories do not receive automatic foundation updates;
+- authentication, authorization vocabulary and deployment security are product decisions;
+- Android, iOS and desktop release signing remain product-owned;
+- public-beta claims require the complete CI acceptance matrix to pass on the public repository.
 
 These decisions are added only when the product requirements are known.
 

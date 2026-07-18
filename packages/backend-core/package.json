@@ -14,9 +14,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit",
-    "test": "tsx --test src/idempotency/execute-idempotently.test.ts src/security/request-context.test.ts"
+    "test": "tsx --test src/idempotency/execute-idempotently.test.ts src/messaging/durable-json.test.ts src/security/request-context.test.ts"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 function parseArguments(arguments_) {
   const values = new Map();
@@ -60,7 +62,7 @@ function trackedFiles() {
   return result.stdout.toString("utf8").split("\0").filter(Boolean);
 }
 
-function replaceAll(source, replacements) {
+export function replaceAll(source, replacements) {
   let result = source;
   for (const [placeholder, value] of replacements) {
     result = result.replaceAll(placeholder, value);
@@ -68,17 +70,26 @@ function replaceAll(source, replacements) {
   return result;
 }
 
-async function run() {
-  const options = parseArguments(process.argv.slice(2));
-  validate(options);
-  const replacements = [
+export function createProductReplacements(options) {
+  return [
     ["com.example.product", options.id],
     ["product-foundation-starter", options.slug],
     ["Product Starter", options.name],
     ["app.reference_durable_probes", `${options.namespace}.reference_durable_probes`],
     ["PRODUCT_MIGRATION_NAMESPACE=app", `PRODUCT_MIGRATION_NAMESPACE=${options.namespace}`],
     ['default("app")', `default("${options.namespace}")`],
+    ["CREATE SCHEMA IF NOT EXISTS app", `CREATE SCHEMA IF NOT EXISTS ${options.namespace}`],
     ["SCHEMA app", `SCHEMA ${options.namespace}`],
+    ["AUTHORIZATION app", `AUTHORIZATION ${options.namespace}`],
+    ["FOR ROLE app", `FOR ROLE ${options.namespace}`],
+    ["DATABASE app TO", `DATABASE ${options.namespace} TO`],
+    ["POSTGRES_DB: app", `POSTGRES_DB: ${options.namespace}`],
+    ["POSTGRES_USER: app", `POSTGRES_USER: ${options.namespace}`],
+    ["pg_isready -U app -d app", `pg_isready -U ${options.namespace} -d ${options.namespace}`],
+    ["postgresql://app_owner:", `postgresql://${options.namespace}_owner:`],
+    ["postgresql://app:", `postgresql://${options.namespace}:`],
+    ["@localhost:5432/app", `@localhost:5432/${options.namespace}`],
+    ["@database:5432/app", `@database:5432/${options.namespace}`],
     ["app_process", `${options.namespace}_process`],
     ["app_http", `${options.namespace}_http`],
     ["app_worker", `${options.namespace}_worker`],
@@ -87,6 +98,12 @@ async function run() {
     ["- `app` — product migration/schema", `- \`${options.namespace}\` — product migration/schema`],
     ["- `app` — migration/schema", `- \`${options.namespace}\` — migration/schema`]
   ];
+}
+
+async function run() {
+  const options = parseArguments(process.argv.slice(2));
+  validate(options);
+  const replacements = createProductReplacements(options);
   const changed = [];
   for (const file of trackedFiles()) {
     if (file === "scripts/rename-product.mjs") {
@@ -123,7 +140,10 @@ async function run() {
   }
 }
 
-run().catch((error) => {
-  process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-  process.exitCode = 1;
-});
+const entryPoint = process.argv[1];
+if (entryPoint !== undefined && pathToFileURL(path.resolve(entryPoint)).href === import.meta.url) {
+  run().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 1;
+  });
+}

@@ -19,6 +19,7 @@
 - [`naming-conventions.md`](./naming-conventions.md) — короткие правила именования;
 - [`foundation-readiness.md`](./foundation-readiness.md) — что уже проверено;
 - [`implementation-roadmap.md`](./implementation-roadmap.md) — выполненный foundation и следующий product stage.
+- [`template-lifecycle.md`](./template-lifecycle.md) — snapshot releases and copied-product upgrades.
 
 Долгоживущие решения находятся в [`docs/adr`](../adr). При конфликте документа
 с `AGENTS.md` действует ближайший `AGENTS.md`.
