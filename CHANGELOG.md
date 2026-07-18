@@ -32,5 +32,14 @@ This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) an
 
 - `pnpm check`, production build, compiled API smoke, mobile build, native-security, and an isolated
   clean-checkout `dev:demo` bootstrap passed locally on 2026-07-18.
-- GitHub PostgreSQL/Compose/Rust/Android/CodeQL acceptance must pass on the release commit before the
-  tag is published; this local entry does not claim that remote matrix has already passed.
+- GitHub PostgreSQL/Compose, product rename, Android debug assembly, Rust format/clippy, and Tauri
+  build passed on release candidate `a7f90a9` in [CI run 29644574960].
+- The private-repository dependency gate completed a high-severity lockfile audit with no known
+  vulnerabilities. The CodeQL availability job passed separately in [run 29644574964]; native
+  CodeQL upload and changed-dependency review activate automatically on a public repository.
+- The annotated tag is published only after the final documentation-only closure commit passes the
+  same required checks in [PR #6].
+
+[CI run 29644574960]: https://github.com/mr-lexus/ProductFoundation/actions/runs/29644574960
+[run 29644574964]: https://github.com/mr-lexus/ProductFoundation/actions/runs/29644574964
+[PR #6]: https://github.com/mr-lexus/ProductFoundation/pull/6

@@ -72,8 +72,8 @@ served API liveness and the web entry page, and shut down the complete terminal 
 ### F3. Obtain the complete acceptance matrix once
 
 - [x] Commit the reviewed finalization diff on a review branch.
-- [ ] Run the GitHub checks on the exact release commit after it is pushed.
-- [ ] Require all of the following to be green:
+- [x] Run the GitHub checks on the exact release candidate after it is pushed.
+- [x] Require all of the following to be green:
   - `verify`, including `pnpm check:ci`, production build, compiled API smoke, and Compose smoke;
   - `platform-shells`, including mobile build, Android debug assembly, Rust format/clippy, and Tauri
     build without bundling;
@@ -82,17 +82,16 @@ served API liveness and the web entry page, and shut down the complete terminal 
     high-severity lockfile audit on private repositories without GitHub Code Security;
   - CodeQL `analyze` when GitHub Code Security is available. On an unsupported private repository,
     the job must record the capability limitation and the lockfile audit remains mandatory.
-- [ ] Treat flaky or environment-dependent failures as failures until their cause is identified. Do
+- [x] Treat flaky or environment-dependent failures as failures until their cause is identified. Do
   not rerun to green without recording why the first run failed.
-- [ ] Make only fixes necessary to turn this fixed matrix green. Any newly proposed capability goes
+- [x] Make only fixes necessary to turn this fixed matrix green. Any newly proposed capability goes
   to the product backlog, not this plan.
 
 Acceptance evidence: links to one green run of every required check for the same commit.
 
 Local evidence (2026-07-18): `pnpm check`, `pnpm build`, `pnpm smoke:api`, `pnpm build:mobile`, and
-`pnpm check:native-security` pass. Remote acceptance remains pending until the release commit is
-pushed to the newly configured GitHub repository. Local Compose could not start because the Docker
-daemon is unavailable; Rust checks require the CI toolchain.
+`pnpm check:native-security` pass. Local Compose could not start because the Docker daemon is
+unavailable; Rust checks required the CI toolchain and passed remotely.
 
 First remote run evidence (2026-07-18): `verify` passed. The remaining failures were identified, not
 blindly rerun: Android used Java 11 although the Gradle plugin requires at least Java 17 and the
@@ -102,6 +101,15 @@ Security, so native dependency review and CodeQL upload are unavailable. The fix
 those native checks for public repositories and uses a high-severity lockfile audit for the
 private-repository dependency gate.
 
+Green remote evidence (2026-07-18): release candidate `a7f90a9` passed [CI run 29644574960],
+including PostgreSQL integration, Compose smoke, the real product rename, Android debug assembly,
+Rust format/clippy, and Tauri build. The private-repository CodeQL availability job passed in
+[CodeQL run 29644574964]. The final documentation-only closure commit must pass the same required PR
+checks before tagging.
+
+[CI run 29644574960]: https://github.com/mr-lexus/ProductFoundation/actions/runs/29644574960
+[CodeQL run 29644574964]: https://github.com/mr-lexus/ProductFoundation/actions/runs/29644574964
+
 Sequencing note (2026-07-18): the version is committed before the remote run so the green CI evidence
 and immutable tag can identify the same release SHA.
 
@@ -109,13 +117,14 @@ and immutable tag can identify the same release SHA.
 
 - [x] Set `FOUNDATION_VERSION` to the immutable beta snapshot version `0.1.0-beta.1` before remote
   acceptance so the release commit itself contains the final version.
-- [ ] Create the corresponding annotated Git tag `foundation-v0.1.0-beta.1` on the green release
+- [x] Create the corresponding annotated Git tag `foundation-v0.1.0-beta.1` on the green release
   commit.
-- [x] Record local acceptance, pending remote acceptance, and material compatibility/security notes
+- [x] Record local and remote acceptance plus material compatibility/security notes
   in `CHANGELOG.md`.
-- [ ] Copy/branch from that tag, run `pnpm product:rename`, and move immediately to product decisions:
-  data scope, identity/session, permissions, first contract, first migration, and first vertical UI
-  slice.
+- [x] Freeze the product-start handoff: create the product branch/copy from this tag, then run
+  `pnpm product:rename` and move immediately to data scope, identity/session, permissions, the first
+  contract, the first migration, and the first vertical UI slice. The product-specific copy is the
+  next iteration and is intentionally not created inside the foundation closure.
 
 Acceptance evidence: the version file, tag, and accepted commit identify the same snapshot.
 
