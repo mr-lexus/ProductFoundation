@@ -49,8 +49,8 @@
     "check:ci": "pnpm check && pnpm test:integration"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.3",
-    "concurrently": "^9.0.0",
-    "typescript": "^5.8.0"
+    "@biomejs/biome": "2.5.4",
+    "concurrently": "^10.0.3",
+    "typescript": "^7.0.2"
   }
 }
