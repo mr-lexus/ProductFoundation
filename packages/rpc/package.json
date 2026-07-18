@@ -14,7 +14,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
     "check": "tsc --noEmit"
   },
   "dependencies": {

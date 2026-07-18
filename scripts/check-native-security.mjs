@@ -38,8 +38,11 @@ if (/allowNavigation\s*:\s*\[\s*["']\*["']\s*\]/.test(capacitorSource)) {
 if (!capacitorSource.includes("CAP_LIVE_RELOAD")) {
   violations.push("Capacitor live reload must require an explicit development flag.");
 }
-if (!tauriWrapper.includes("apiUrl.origin")) {
-  violations.push("Tauri wrapper must derive connect-src from the configured API origin.");
+if (
+  !tauriWrapper.includes("apiUrl.origin") ||
+  !tauriWrapper.includes("apiUrl.origin !== rawApiUrl")
+) {
+  violations.push("Tauri wrapper must require and allow only the exact configured API origin.");
 }
 if (
   !frontendWrapper.includes("NATIVE_ALLOW_INSECURE_API") ||

@@ -26,10 +26,11 @@ Platform bootstrap belongs in app shells. Product logic belongs here.
 * TypeScript (strict)
 * Vite-compatible frontend tooling
 * TanStack Query
-* Zustand
-* React Router
 * Zod
 * SCSS
+
+React Router and Zustand are optional product dependencies. Add them only when routing or shared
+client-state requirements actually exist; the foundation does not install unused state layers.
 
 ---
 
