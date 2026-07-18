@@ -13,8 +13,32 @@ function run(command, arguments_, cwd) {
   });
 }
 
-test("product rename is deterministic and covers runtime identifiers", async () => {
+const exampleProduct = {
+  id: "com.acme.example",
+  name: "Example Product",
+  namespace: "example",
+  slug: "example-product"
+};
+
+test("product rename replacements are deterministic after a repository rename", () => {
+  const replacements = createProductReplacements(exampleProduct);
+  const placeholders = replacements.map(([placeholder]) => placeholder).join("\n");
+  const expected = replacements.map(([, value]) => value).join("\n");
+  const renamed = replaceAll(placeholders, replacements);
+
+  assert.equal(renamed, expected);
+  assert.equal(replaceAll(renamed, replacements), renamed);
+});
+
+test("canonical repository rename covers runtime identifiers", async (context) => {
   const workspaceRoot = path.resolve(import.meta.dirname, "..");
+  const workspaceManifest = JSON.parse(
+    await readFile(path.join(workspaceRoot, "package.json"), "utf8")
+  );
+  if (workspaceManifest.name !== "product-foundation-starter") {
+    context.skip("repository has already been product-renamed");
+    return;
+  }
   const temporaryRoot = await mkdtemp(path.join(tmpdir(), "product-foundation-rename-"));
 
   try {
@@ -36,13 +60,13 @@ test("product rename is deterministic and covers runtime identifiers", async () 
     const arguments_ = [
       "scripts/rename-product.mjs",
       "--name",
-      "Example Product",
+      exampleProduct.name,
       "--slug",
-      "example-product",
+      exampleProduct.slug,
       "--id",
-      "com.acme.example",
+      exampleProduct.id,
       "--namespace",
-      "example",
+      exampleProduct.namespace,
       "--write"
     ];
     const renamed = run(process.execPath, arguments_, temporaryRoot);
@@ -75,12 +99,7 @@ test("product rename is deterministic and covers runtime identifiers", async () 
     assert.match(postgresInitialization, /SCHEMA IF NOT EXISTS example AUTHORIZATION example/);
     assert.match(postgresInitialization, /DATABASE example TO example_runtime/);
 
-    const replacements = createProductReplacements({
-      id: "com.acme.example",
-      name: "Example Product",
-      namespace: "example",
-      slug: "example-product"
-    });
+    const replacements = createProductReplacements(exampleProduct);
     for (const file of listed.stdout.split("\0").filter(Boolean)) {
       if (file === "scripts/rename-product.mjs") {
         continue;

@@ -78,8 +78,10 @@ served API liveness and the web entry page, and shut down the complete terminal 
   - `platform-shells`, including mobile build, Android debug assembly, Rust format/clippy, and Tauri
     build without bundling;
   - `rename-smoke` after applying a real product rename;
-  - `dependency-review`;
-  - CodeQL `analyze`.
+  - `dependency-review`, using GitHub's changed-dependency review when available and a complete
+    high-severity lockfile audit on private repositories without GitHub Code Security;
+  - CodeQL `analyze` when GitHub Code Security is available. On an unsupported private repository,
+    the job must record the capability limitation and the lockfile audit remains mandatory.
 - [ ] Treat flaky or environment-dependent failures as failures until their cause is identified. Do
   not rerun to green without recording why the first run failed.
 - [ ] Make only fixes necessary to turn this fixed matrix green. Any newly proposed capability goes
@@ -91,6 +93,13 @@ Local evidence (2026-07-18): `pnpm check`, `pnpm build`, `pnpm smoke:api`, `pnpm
 `pnpm check:native-security` pass. Remote acceptance remains pending until the release commit is
 pushed to the newly configured GitHub repository. Local Compose could not start because the Docker
 daemon is unavailable; Rust checks require the CI toolchain.
+
+First remote run evidence (2026-07-18): `verify` passed. The remaining failures were identified, not
+blindly rerun: Android used Java 11 although its Gradle plugin requires Java 17; the tooling test
+assumed the canonical placeholders still existed after `rename-smoke`; and the private repository
+does not have GitHub Code Security, so native dependency review and CodeQL upload are unavailable.
+The fixed workflow retains those native checks for public repositories and uses a high-severity
+lockfile audit for the private-repository dependency gate.
 
 Sequencing note (2026-07-18): the version is committed before the remote run so the green CI evidence
 and immutable tag can identify the same release SHA.
