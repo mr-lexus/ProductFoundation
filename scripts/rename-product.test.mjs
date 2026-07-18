@@ -35,7 +35,8 @@ test("canonical repository rename covers runtime identifiers", async (context) =
   const workspaceManifest = JSON.parse(
     await readFile(path.join(workspaceRoot, "package.json"), "utf8")
   );
-  if (workspaceManifest.name !== "product-foundation-starter") {
+  const canonicalSlug = ["product", "foundation", "starter"].join("-");
+  if (workspaceManifest.name !== canonicalSlug) {
     context.skip("repository has already been product-renamed");
     return;
   }
