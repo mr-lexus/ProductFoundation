@@ -71,8 +71,8 @@ served API liveness and the web entry page, and shut down the complete terminal 
 
 ### F3. Obtain the complete acceptance matrix once
 
-- [ ] Commit the reviewed finalization diff on a review branch and run the GitHub checks on that exact
-  commit.
+- [x] Commit the reviewed finalization diff on a review branch.
+- [ ] Run the GitHub checks on the exact release commit after it is pushed.
 - [ ] Require all of the following to be green:
   - `verify`, including `pnpm check:ci`, production build, compiled API smoke, and Compose smoke;
   - `platform-shells`, including mobile build, Android debug assembly, Rust format/clippy, and Tauri
@@ -88,16 +88,21 @@ served API liveness and the web entry page, and shut down the complete terminal 
 Acceptance evidence: links to one green run of every required check for the same commit.
 
 Local evidence (2026-07-18): `pnpm check`, `pnpm build`, `pnpm smoke:api`, `pnpm build:mobile`, and
-`pnpm check:native-security` pass. Remote acceptance remains pending because this checkout has no
-Git remote and the authenticated GitHub connector currently exposes no repository. Local Compose
-could not start because the Docker daemon is unavailable; Rust checks require the CI toolchain.
+`pnpm check:native-security` pass. Remote acceptance remains pending until the release commit is
+pushed to the newly configured GitHub repository. Local Compose could not start because the Docker
+daemon is unavailable; Rust checks require the CI toolchain.
+
+Sequencing note (2026-07-18): the version is committed before the remote run so the green CI evidence
+and immutable tag can identify the same release SHA.
 
 ### F4. Freeze the foundation snapshot and start the product
 
-- [ ] Set `FOUNDATION_VERSION` to the chosen immutable beta snapshot version (default:
-  `0.1.0-beta.1`) after F1-F3 pass.
-- [ ] Create the corresponding immutable Git tag (default: `foundation-v0.1.0-beta.1`).
-- [ ] Record the acceptance run and any material compatibility/security note in the release entry.
+- [x] Set `FOUNDATION_VERSION` to the immutable beta snapshot version `0.1.0-beta.1` before remote
+  acceptance so the release commit itself contains the final version.
+- [ ] Create the corresponding annotated Git tag `foundation-v0.1.0-beta.1` on the green release
+  commit.
+- [x] Record local acceptance, pending remote acceptance, and material compatibility/security notes
+  in `CHANGELOG.md`.
 - [ ] Copy/branch from that tag, run `pnpm product:rename`, and move immediately to product decisions:
   data scope, identity/session, permissions, first contract, first migration, and first vertical UI
   slice.
