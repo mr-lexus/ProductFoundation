@@ -19,8 +19,8 @@
     "test": "tsx --test src/idempotency/execute-idempotently.test.ts src/security/request-context.test.ts"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "tsx": "^4.19.0",
-    "typescript": "^5.8.0"
+    "@types/node": "^26.1.2",
+    "tsx": "^4.23.8",
+    "typescript": "^7.0.2"
   }
 }
