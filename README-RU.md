@@ -162,3 +162,9 @@ integration tests.
 - [Contributing](./CONTRIBUTING.md)
 - [Security policy](./SECURITY.md)
 - [MIT license](./LICENSE)
+
+Frontend shells имеют независимые entrypoints и dist, сохраняя один React UI.
+Только Web включает PWA. Каждый PR проверяет browser smoke, изоляцию артефактов,
+Android и Tauri Linux. Для релевантных PR и weekly/manual запусков добавлены
+Tauri Windows/macOS и unsigned iOS simulator build на macOS.
+См. [границы проверок](./docs/architecture/foundation-readiness.md).

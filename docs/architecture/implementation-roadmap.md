@@ -19,7 +19,8 @@ design system создаются после копирования репози�
 - versioned contract-first RPC и Zod runtime validation;
 - единый request ID, typed errors и cancellation;
 - durable invoker обязателен для каждой RPC mutation и валидирует output до commit;
-- отдельный `web | mobile | desktop` build context общего frontend;
+- independent Web/mobile/desktop entrypoints and shell-local dist outputs;
+- Web-only generateSW PWA with prompt updates and no API runtime cache;
 - same-origin web API, обязательный native API URL и Tauri CSP.
 
 ### Data и reliability

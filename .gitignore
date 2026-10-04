@@ -50,3 +50,7 @@ apps/mobile/local.properties
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Browser verification
+playwright-report/
+test-results/

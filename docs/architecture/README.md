@@ -23,3 +23,6 @@
 
 Долгоживущие решения находятся в [`docs/adr`](../adr). При конфликте документа
 с `AGENTS.md` действует ближайший `AGENTS.md`.
+
+Frontend runtime decisions: [independent composition](../adr/0011-frontend-runtime-composition.md)
+and [Web-only PWA](../adr/0012-web-only-pwa.md).

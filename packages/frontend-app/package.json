@@ -10,7 +10,7 @@
     "build:dependencies": "pnpm --dir ../.. build:frontend-dependencies",
     "check": "pnpm build:dependencies && pnpm check:package",
     "check:package": "tsc --noEmit",
-    "test": "tsx --test src/entities/system/model/system-status.test.ts"
+    "test": "tsx --test src/entities/system/model/system-status.test.ts src/shared/api/create-api-client.test.ts"
   },
   "dependencies": {
     "@app/contracts": "workspace:*",

@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-const DEFAULT_CORS_ORIGINS = ["http://127.0.0.1:1420", "http://localhost:1420"] as const;
+const DEFAULT_CORS_ORIGINS = [1420, 1421, 1422].flatMap((port) => [
+  `http://127.0.0.1:${port}`,
+  `http://localhost:${port}`
+]);
 
 const runtimeEnvironmentSchema = z.enum(["development", "test", "production"]);
 
@@ -119,6 +122,8 @@ function parseCorsOrigins(
   return [
     ...new Set(
       origins.map((origin) => {
+        // Exact packaged WebView origins, never arbitrary schemes or opaque "null" origins.
+        if (origin === "capacitor://localhost" || origin === "tauri://localhost") return origin;
         if (origin === "*") {
           throw new Error("CORS_ORIGINS cannot use a wildcard with credentialed requests.");
         }
@@ -126,7 +131,12 @@ function parseCorsOrigins(
         if (url.protocol !== "http:" && url.protocol !== "https:") {
           throw new Error("CORS_ORIGINS entries must use http or https.");
         }
-        if (url.origin !== origin || url.username !== "" || url.password !== "") {
+        if (
+          url.origin !== origin ||
+          url.username !== "" ||
+          url.password !== "" ||
+          url.hostname.includes("*")
+        ) {
           throw new Error("CORS_ORIGINS entries must be origins without credentials or paths.");
         }
         return url.origin;

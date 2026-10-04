@@ -30,6 +30,35 @@ a namespace for another product and never change an applied migration checksum.
 
 ## Application rollback
 
+### Web/PWA delivery
+
+Publish apps/web/dist at the origin root over HTTPS. Keep index.html, sw.js and
+manifest.webmanifest revalidating; use long-lived immutable caching only for
+hashed assets. Deploy atomically and retain old hashed assets during rollout so
+open pages can finish loading their original version.
+
+The worker precaches only the shell/static assets. Its NavigationRoute handles
+document navigations, with resource and rpc/health/metrics exclusions. Configure
+the hosting server's SPA fallback consistently: service/resource requests must
+not be rewritten into HTML. API data remains network-dependent when offline.
+
+Updates offer Reload/Later. There is no custom polling timer. Deferring keeps the
+current page running, while normal browser worker lifecycle rules still apply
+when all old clients close. Registration failures leave the application usable.
+
+Roll back by republishing the previous complete artifact, including its worker,
+under the same root/scope. Worker installation and user acceptance are asynchronous;
+do not assume every open page changes version immediately. An emergency worker
+removal requires a deliberate cleanup-worker deployment at the same URL, not merely
+deleting sw.js or clearing unrelated browser storage. Two-build update E2E, signing,
+browser installation UI and product offline data policies are outside the smoke suite.
+
+Subpath hosting requires coordinated Vite base, manifest identity/scope/start URL
+and worker navigation configuration. It is not enabled through a speculative
+configuration framework in the starter.
+
+### API/worker rollback
+
 Roll back API/worker to the previous image. Do not edit an applied migration and
 do not automatically run destructive down migrations. Expanded columns/tables
 remain until a later contract migration after every old version is gone.

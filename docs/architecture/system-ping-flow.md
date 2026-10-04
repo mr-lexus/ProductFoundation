@@ -6,7 +6,7 @@
 ```text
 packages/contracts/src/system-ping.ts
   ↓ один Zod/RPC contract
-packages/frontend-app/src/shared/api/system/ping-system.ts
+packages/frontend-app/src/shared/api/create-api-client.ts
   ↓ @product-foundation/rpc-client
 POST /rpc/v1/system-ping
   ↓ NestJS controller

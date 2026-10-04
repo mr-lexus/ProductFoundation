@@ -210,7 +210,10 @@ shared/lib/platform
 shared/config/platform
 ```
 
-App shells should inject platform-specific wiring. Features should consume explicit interfaces.
+App shells inject only concrete dependencies with current consumers. Fetch is wired into the
+API client/provider at bootstrap. Do not introduce a generic runtime context, service locator
+or speculative capability registry. Add future capabilities through separate explicit interfaces
+when needed. Capacitor, Tauri, PWA imports and import.meta.env belong in their runtime shells.
 
 ---
 

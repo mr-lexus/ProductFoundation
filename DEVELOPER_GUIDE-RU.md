@@ -86,9 +86,19 @@ app → pages → widgets → features → entities → shared
 HTTP/RPC находится в `shared/api`, server state — в TanStack Query, локальное состояние — в
 React. Web production использует same-origin API; для Capacitor и Tauri обязателен
 `VITE_API_URL`. Production native build принимает только HTTPS; локальный HTTP для mobile требует
-явного `NATIVE_ALLOW_INSECURE_API=true`.
+явного `NATIVE_ALLOW_INSECURE_API=true` и команды `build:mobile:dev`.
 
 ## Что переименовать
+
+Каждый shell имеет собственный entrypoint и dist. Весь продуктовый UI остаётся
+в frontend-app. Bootstrap передаёт конкретный API transport без generic runtime
+context. Только Web содержит PWA worker и предложение обновить страницу.
+См. [команды и browser smoke](./docs/architecture/local-development.md) и
+[таблицу native origins](./docs/architecture/environment-contract.md).
+
+Инициализацию выполняйте до генерации native projects. Необязательный --short-name
+задаёт короткое имя Web manifest; остальные identity placeholders принадлежат
+соответствующим платформам.
 
 Сначала просмотрите dry-run, затем примените подтверждённое переименование:
 

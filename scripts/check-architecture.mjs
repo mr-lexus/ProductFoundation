@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
+import { frontendImportViolation, frontendSourceViolation } from "./frontend-boundaries.mjs";
 import { readImports } from "./read-imports.mjs";
 
 const workspaceRoot = process.cwd();
@@ -199,6 +200,13 @@ async function checkFile(filePath) {
   const imports = readImports(source);
   const normalizedFile = relativeFromWorkspace(filePath);
 
+  for (const specifier of imports) {
+    const violation = frontendImportViolation(normalizedFile, specifier);
+    if (violation) addViolation(filePath, `${violation}: ${specifier}`);
+  }
+  const sourceViolation = frontendSourceViolation(normalizedFile, source);
+  if (sourceViolation) addViolation(filePath, sourceViolation);
+
   if (normalizedFile.startsWith("packages/")) {
     const packageName = normalizedFile.split("/")[1];
 
@@ -322,6 +330,13 @@ function checkManifestBoundaries(manifests) {
       ...entry.manifest.optionalDependencies,
       ...entry.manifest.peerDependencies
     };
+    for (const dependency of Object.keys(allDependencies)) {
+      const violation = frontendImportViolation(
+        relativeFromWorkspace(entry.manifestPath),
+        dependency
+      );
+      if (violation) addViolation(entry.manifestPath, violation);
+    }
     const runtimeDependencies = {
       ...entry.manifest.dependencies,
       ...entry.manifest.optionalDependencies,

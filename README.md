@@ -28,6 +28,7 @@ foundation code and reviews later fixes explicitly; see the
 ## What is included
 
 - one React frontend shared by browser, Capacitor, and Tauri;
+- independent runtime entrypoints/artifacts and a Web-only installable PWA shell;
 - NestJS + Fastify backend;
 - PostgreSQL and versioned SQL migrations;
 - contract-first RPC with Zod runtime validation;
@@ -105,6 +106,10 @@ pnpm check:native   # Capacitor config and Rust/Tauri
 CI additionally runs PostgreSQL integration tests, the Compose smoke test, and
 a Tauri build without bundling. Pull requests receive dependency review, CodeQL
 runs on pushes/PRs and weekly, and Dependabot maintains npm, Cargo and Actions refs.
+
+Every PR also checks PWA browser behavior, artifact isolation and Android compilation.
+Relevant PRs plus weekly/manual runs compile Tauri on Windows/macOS and an unsigned
+iOS simulator app on macOS. See [verification limits](./docs/architecture/foundation-readiness.md).
 
 ## Starting a new product
 

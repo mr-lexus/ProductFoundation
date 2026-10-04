@@ -41,6 +41,12 @@ in `frontend-app`; inject platform differences through explicit adapters.
 Shell-local code is appropriate for push notifications, filesystem, native
 share, window lifecycle and platform bootstrap.
 
+Each frontend app owns index.html, src/main.tsx, src/runtime.ts and vite.config.ts.
+Outputs are apps/web/dist, apps/mobile/dist and apps/desktop/dist. Native packaging
+never reads Web output. Shell-local asset directories must not be shared.
+The tooling-only native-runtime-config.mts helper lives under scripts because both
+Node launchers and shell configuration consume it; frontend features do not.
+
 ## Public API rule
 
 Cross-package imports use package exports. Cross-slice frontend imports use the

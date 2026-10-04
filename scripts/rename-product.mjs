@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -15,7 +15,7 @@ function parseArguments(arguments_) {
     if (argument === "--") {
       continue;
     }
-    if (!["--name", "--slug", "--id", "--namespace"].includes(argument)) {
+    if (!["--name", "--short-name", "--slug", "--id", "--namespace"].includes(argument)) {
       throw new Error(`Unknown argument: ${argument ?? "<missing>"}`);
     }
     const value = arguments_[index + 1];
@@ -33,6 +33,7 @@ function parseArguments(arguments_) {
   return {
     id: values.get("--id"),
     name: values.get("--name"),
+    shortName: values.get("--short-name") ?? values.get("--name"),
     namespace: values.get("--namespace"),
     slug: values.get("--slug"),
     write
@@ -40,6 +41,9 @@ function parseArguments(arguments_) {
 }
 
 function validate(options) {
+  if (!/^[\p{L}\p{N}][\p{L}\p{N} .&'()-]{0,79}$/u.test(options.shortName)) {
+    throw new Error("--short-name must be 1-80 display-safe characters.");
+  }
   if (!/^[\p{L}\p{N}][\p{L}\p{N} .&'()-]{1,79}$/u.test(options.name)) {
     throw new Error("--name must be 2-80 display-safe characters.");
   }
@@ -54,6 +58,43 @@ function validate(options) {
   }
 }
 
+export function replaceProductFile(file, source, options) {
+  const replacements = createProductReplacements(options);
+  if (file === "apps/web/pwa-manifest.json") {
+    const manifest = JSON.parse(source);
+    if (manifest.name === "Product Starter") manifest.name = options.name;
+    if (manifest.short_name === "Product Starter")
+      manifest.short_name = options.shortName ?? options.name;
+    return `${JSON.stringify(manifest, null, 2)}\n`;
+  }
+  if (file.endsWith(".html")) {
+    return replaceAll(
+      source,
+      replacements.map(([key, value]) => [
+        key,
+        key === "Product Starter" ? value.replaceAll("&", "&amp;").replaceAll("'", "&#39;") : value
+      ])
+    );
+  }
+  return replaceAll(source, replacements);
+}
+
+export async function assertNoGeneratedMobileProjects(root) {
+  for (const platform of ["android", "ios"]) {
+    const exists = await stat(path.join(root, "apps/mobile", platform)).then(
+      () => true,
+      (error) => {
+        if (error.code === "ENOENT") return false;
+        throw error;
+      }
+    );
+    if (exists)
+      throw new Error(
+        `Initialize product identity before generating apps/mobile/${platform}. Existing native projects require a deliberate native identity migration; no files were changed.`
+      );
+  }
+}
+
 function trackedFiles() {
   const result = spawnSync("git", ["ls-files", "-z"], { encoding: "buffer" });
   if (result.status !== 0) {
@@ -63,11 +104,17 @@ function trackedFiles() {
 }
 
 export function replaceAll(source, replacements) {
-  let result = source;
-  for (const [placeholder, value] of replacements) {
-    result = result.replaceAll(placeholder, value);
-  }
-  return result;
+  const values = new Set(replacements.map(([, value]) => value));
+  const replacementsByKey = new Map(replacements);
+  // Match complete replacement values before their shorter placeholder prefixes.
+  // One pass also prevents one substitution from being renamed by a later rule.
+  const tokens = [...new Set([...replacementsByKey.keys(), ...values])].sort(
+    (left, right) => right.length - left.length
+  );
+  const pattern = new RegExp(tokens.map((token) => RegExp.escape(token)).join("|"), "g");
+  return source.replace(pattern, (token) =>
+    values.has(token) ? token : replacementsByKey.get(token)
+  );
 }
 
 export function createProductReplacements(options) {
@@ -103,7 +150,7 @@ export function createProductReplacements(options) {
 async function run() {
   const options = parseArguments(process.argv.slice(2));
   validate(options);
-  const replacements = createProductReplacements(options);
+  if (options.write) await assertNoGeneratedMobileProjects(process.cwd());
   const changed = [];
   for (const file of trackedFiles()) {
     if (file === "scripts/rename-product.mjs") {
@@ -122,7 +169,7 @@ async function run() {
       continue;
     }
     const source = buffer.toString("utf8");
-    const next = replaceAll(source, replacements);
+    const next = replaceProductFile(file, source, options);
     if (next !== source) {
       changed.push(file);
       if (options.write) {

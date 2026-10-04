@@ -12,8 +12,8 @@
       "cwd": "../../..",
       "script": "pnpm dev:desktop:frontend"
     },
-    "devUrl": "http://127.0.0.1:1420",
-    "frontendDist": "../../web/dist"
+    "devUrl": "http://127.0.0.1:1422",
+    "frontendDist": "../dist"
   },
   "app": {
     "security": {
@@ -24,7 +24,8 @@
         "height": 860,
         "resizable": true,
         "title": "Product Starter",
-        "width": 1280
+        "width": 1280,
+        "useHttpsScheme": false
       }
     ]
   },

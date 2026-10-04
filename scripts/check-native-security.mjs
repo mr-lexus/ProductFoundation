@@ -1,64 +1,61 @@
 import { readFile } from "node:fs/promises";
-import process from "node:process";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const tauriConfig = JSON.parse(
-  await readFile(new URL("../apps/desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")
-);
-const capacitorSource = await readFile(
-  new URL("../apps/mobile/capacitor.config.ts", import.meta.url),
-  "utf8"
-);
-const tauriWrapper = await readFile(new URL("./run-tauri.mjs", import.meta.url), "utf8");
-const frontendWrapper = await readFile(
-  new URL("./run-frontend-platform.mjs", import.meta.url),
-  "utf8"
-);
-const violations = [];
-
-const csp = tauriConfig?.app?.security?.csp;
-if (typeof csp !== "string") {
-  violations.push("Tauri CSP must be enabled.");
-} else {
-  const connectSources = csp
-    .split(";")
-    .map((directive) => directive.trim().split(/\s+/))
-    .find(([name]) => name === "connect-src")
-    ?.slice(1);
-  if (connectSources === undefined) {
-    violations.push("Tauri CSP must define connect-src.");
-  } else if (
-    connectSources.some((source) => source === "*" || source === "http:" || source === "https:")
-  ) {
-    violations.push("Tauri base CSP must not allow wildcard http/https connections.");
+export function checkNativeConfiguration(tauri, capacitor) {
+  const errors = [];
+  const csp = tauri.app?.security?.csp;
+  if (typeof csp !== "string") errors.push("Tauri CSP must be enabled.");
+  else {
+    const directives = new Map(
+      csp.split(";").map((part) => {
+        const [name, ...values] = part.trim().split(/\s+/);
+        return [name, values];
+      })
+    );
+    const sources = directives.get("connect-src");
+    if (
+      !sources ||
+      sources.some(
+        (value) => value.includes("*") || ["http:", "https:", "ws:", "wss:"].includes(value)
+      )
+    )
+      errors.push("Tauri connect-src must use exact origins.");
+    if (directives.get("script-src")?.join(" ") !== "'self'")
+      errors.push("Tauri script-src must remain self-only.");
   }
+  if (tauri.build?.frontendDist !== "../dist") errors.push("Tauri must package desktop/dist.");
+  if (tauri.build?.devUrl !== "http://127.0.0.1:1422")
+    errors.push("Tauri development must use the desktop origin.");
+  if (
+    tauri.app?.windows?.some(
+      (window) => window.useHttpsScheme !== false || (window.url && window.url !== "index.html")
+    )
+  )
+    errors.push(
+      "Tauri packaged origin configuration changed; update origin verification explicitly."
+    );
+  if (capacitor.webDir !== "dist") errors.push("Capacitor must package mobile/dist.");
+  const server = capacitor.server;
+  if (
+    server?.hostname !== "localhost" ||
+    server.iosScheme !== "capacitor" ||
+    server.androidScheme !== "https"
+  )
+    errors.push("Capacitor packaged origins must match the verified origin table.");
+  if (server?.url || server?.cleartext || server?.allowNavigation?.length)
+    errors.push("Production Capacitor config must not enable live reload/navigation.");
+  if (capacitor.android?.allowMixedContent)
+    errors.push("Production Capacitor config must not permit mixed content.");
+  return errors;
 }
-if (/allowNavigation\s*:\s*\[\s*["']\*["']\s*\]/.test(capacitorSource)) {
-  violations.push("Capacitor allowNavigation must not use a wildcard.");
-}
-if (!capacitorSource.includes("CAP_LIVE_RELOAD")) {
-  violations.push("Capacitor live reload must require an explicit development flag.");
-}
-if (
-  !tauriWrapper.includes("apiUrl.origin") ||
-  !tauriWrapper.includes("apiUrl.origin !== rawApiUrl")
-) {
-  violations.push("Tauri wrapper must require and allow only the exact configured API origin.");
-}
-if (
-  !frontendWrapper.includes("NATIVE_ALLOW_INSECURE_API") ||
-  !frontendWrapper.includes("apiUrl.origin !== rawApiUrl")
-) {
-  violations.push(
-    "Mobile builds must validate exact API origins and require an explicit HTTP opt-in."
+
+if (process.argv[1] && pathToFileURL(path.resolve(process.argv[1])).href === import.meta.url) {
+  const tauri = JSON.parse(
+    await readFile(new URL("../apps/desktop/src-tauri/tauri.conf.json", import.meta.url), "utf8")
   );
-}
-
-if (violations.length > 0) {
-  process.stderr.write("Native security check failed:\n");
-  for (const violation of violations) {
-    process.stderr.write(`- ${violation}\n`);
-  }
-  process.exitCode = 1;
-} else {
-  process.stdout.write("Native security check passed.\n");
+  const { default: capacitor } = await import("../apps/mobile/capacitor.config.ts");
+  const errors = checkNativeConfiguration(tauri, capacitor);
+  if (errors.length) throw new Error(errors.join("\n"));
+  console.log("Native configuration security check passed.");
 }

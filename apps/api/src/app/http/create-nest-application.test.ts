@@ -103,6 +103,53 @@ test("NestJS permits authorization headers in CORS preflight", async () => {
   assert.match(response.headers["access-control-allow-headers"] ?? "", /Authorization/i);
 });
 
+test("every packaged native origin is allowed only when explicitly configured", async () => {
+  const origins = [
+    "capacitor://localhost",
+    "https://localhost",
+    "http://tauri.localhost",
+    "tauri://localhost"
+  ];
+  for (const origin of origins) {
+    const config = loadApiConfig({ NODE_ENV: "test", CORS_ORIGINS: origin });
+    assert.deepEqual(config.corsOrigins, [origin]);
+    const request = {
+      method: "OPTIONS" as const,
+      url: systemPingRpcContract.path,
+      headers: {
+        origin,
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "content-type"
+      }
+    };
+    const allowed = await inject(request, { corsOrigins: config.corsOrigins });
+    assert.equal(allowed.headers["access-control-allow-origin"], origin);
+    assert.equal(allowed.headers["access-control-allow-credentials"], "true");
+    const denied = await inject(request);
+    assert.equal(denied.headers["access-control-allow-origin"], undefined);
+  }
+  for (const origin of [
+    "null",
+    "custom://localhost",
+    "tauri://other",
+    "capacitor://localhost/",
+    "tauri://localhost:123",
+    "https://*.example.com",
+    "http://tauri.localhost.evil/path"
+  ]) {
+    assert.throws(() => loadApiConfig({ CORS_ORIGINS: origin }));
+  }
+  const denied = await inject(
+    {
+      method: "OPTIONS",
+      url: systemPingRpcContract.path,
+      headers: { origin: "http://tauri.localhost.evil", "access-control-request-method": "POST" }
+    },
+    { corsOrigins: ["http://tauri.localhost"] }
+  );
+  assert.equal(denied.headers["access-control-allow-origin"], undefined);
+});
+
 test("NestJS maps Fastify parser errors to the RPC envelope", async () => {
   const unsupportedResponse = await inject({
     headers: { "content-type": "application/x-www-form-urlencoded" },

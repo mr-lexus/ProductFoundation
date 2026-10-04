@@ -118,6 +118,15 @@ VITE_API_URL=https://api.example.com pnpm tauri:build
 
 ## Rename after copying
 
+Each shell owns its entrypoint and dist; all product UI stays in frontend-app.
+Only concrete API dependencies are injected at bootstrap. There is no generic
+runtime context. Web alone includes a PWA worker and prompt-based updates.
+See [runtime commands and browser verification](./docs/architecture/local-development.md)
+and [the native origin table](./docs/architecture/environment-contract.md).
+
+Run initialization before generating native projects. --short-name optionally
+sets the Web manifest short name; other identity placeholders remain platform-owned.
+
 Preview a deterministic rename, review the listed files, then apply it:
 
 ```bash

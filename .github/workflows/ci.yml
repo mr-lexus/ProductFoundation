@@ -2,6 +2,9 @@ name: CI
 
 on:
   pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 4 * * 1"
   push:
     branches: [main, master]
 
@@ -13,6 +16,102 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  native-changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      native: ${{ steps.changes.outputs.native }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - id: changes
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/native-ci-changes.mjs
+
+  native-desktop:
+    needs: native-changes
+    if: needs.native-changes.outputs.native == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      VITE_API_URL: https://api.example.invalid
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          cache: pnpm
+          node-version: 24
+      - run: rustup toolchain install stable --profile minimal --component clippy --component rustfmt
+      - run: rustup default stable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:native-security
+      - run: pnpm build:frontend-dependencies
+      - run: pnpm --filter @app/desktop check:frontend
+      - run: pnpm --filter @app/desktop format:check
+      - run: pnpm --filter @app/desktop lint
+      - run: pnpm --filter @app/desktop build:ci
+
+  native-ios:
+    needs: native-changes
+    if: needs.native-changes.outputs.native == 'true'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      VITE_API_URL: https://api.example.invalid
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: pnpm/action-setup@b0f76dfb45f55f8421693e4803ac7bb65143bd34 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          cache: pnpm
+          node-version: 24
+      - name: Verify Xcode supports Capacitor 8
+        run: |
+          xcodebuild -version
+          test "$(xcodebuild -version | head -n 1 | cut -d ' ' -f 2 | cut -d . -f 1)" -ge 26
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:native-security
+      - run: pnpm build:mobile
+      - run: pnpm cap:add:ios
+      - run: pnpm cap:sync ios
+      - name: Compile unsigned simulator application using SPM
+        run: >-
+          xcodebuild -project apps/mobile/ios/App/App.xcodeproj
+          -scheme App -configuration Debug -sdk iphonesimulator
+          -destination 'generic/platform=iOS Simulator'
+          -derivedDataPath apps/mobile/ios/build
+          CODE_SIGNING_ALLOWED=NO build
+
+  native-coverage:
+    needs: [native-changes, native-desktop, native-ios]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require all applicable native builds
+        env:
+          CHANGES_RESULT: ${{ needs.native-changes.result }}
+          REQUIRED: ${{ needs.native-changes.outputs.native }}
+          DESKTOP_RESULT: ${{ needs.native-desktop.result }}
+          IOS_RESULT: ${{ needs.native-ios.result }}
+        run: |
+          test "$CHANGES_RESULT" = success
+          if [ "$REQUIRED" = true ]; then
+            test "$DESKTOP_RESULT" = success
+            test "$IOS_RESULT" = success
+          fi
+
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -43,6 +142,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check:ci
       - run: pnpm build
+      - run: pnpm check:native-security
+      - run: pnpm test:frontend-artifacts
+      - run: pnpm check:frontend-artifacts
+      - run: pnpm --filter @app/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @app/web test:pwa
       - run: pnpm smoke:api
       - run: pnpm smoke:compose
 
@@ -51,6 +155,7 @@ jobs:
     timeout-minutes: 30
     env:
       CI: true
+      VITE_API_URL: https://api.example.invalid
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Install Tauri system dependencies
@@ -77,7 +182,7 @@ jobs:
       - run: pnpm --filter @app/mobile check
       - run: pnpm build:mobile
       - run: pnpm cap:add:android
-      - run: pnpm cap:sync
+      - run: pnpm cap:sync android
       - run: apps/mobile/android/gradlew --no-daemon -p apps/mobile/android assembleDebug
       - run: pnpm --filter @app/desktop format:check
       - run: pnpm --filter @app/desktop lint
@@ -104,6 +209,8 @@ jobs:
         run: pnpm audit --audit-level=high
 
   rename-smoke:
+    env:
+      VITE_API_URL: https://api.example.invalid
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -121,4 +228,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm build
-      - run: pnpm build:mobile
+      - run: pnpm build:frontends
+      - run: pnpm check:frontend-artifacts
+      - run: pnpm check:native-security

@@ -24,6 +24,14 @@ flowchart LR
 Продукт пишется один раз в `packages/frontend-app`. Web, mobile и desktop shells
 только запускают его и предоставляют platform adapters.
 
+Each shell has an independent Vite entrypoint and local dist. Bootstrap passes
+immutable configuration and fetch into createFrontendApp; a concrete API provider
+owns the current RPC operations. There is no generic runtime/service-locator context.
+Web alone owns generated PWA registration, a Reload/Later prompt and static-shell
+caching. Product data has no offline semantics in the foundation.
+See [ADR 0011](../adr/0011-frontend-runtime-composition.md) and
+[ADR 0012](../adr/0012-web-only-pwa.md).
+
 Frontend использует облегчённый Feature-Sliced Design:
 
 ```text
