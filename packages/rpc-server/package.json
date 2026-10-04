@@ -15,9 +15,12 @@
   ],
   "scripts": {
     "build:dependencies": "pnpm --filter @product-foundation/rpc build",
-    "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
-    "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm build:dependencies && tsx --test src/execute-rpc-procedure.test.ts"
+    "build": "pnpm build:dependencies && pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit",
+    "test": "pnpm build:dependencies && pnpm test:package",
+    "test:package": "tsx --test src/execute-rpc-procedure.test.ts"
   },
   "dependencies": {
     "@product-foundation/rpc": "workspace:*"

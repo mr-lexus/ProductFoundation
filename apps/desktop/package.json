@@ -6,7 +6,9 @@
   "scripts": {
     "build": "node ../../scripts/run-tauri.mjs build",
     "build:ci": "node ../../scripts/run-tauri.mjs build --no-bundle",
-    "check": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "check": "cargo check --locked --manifest-path src-tauri/Cargo.toml",
+    "format:check": "cargo fmt --check --manifest-path src-tauri/Cargo.toml",
+    "lint": "cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings",
     "dev": "node ../../scripts/run-tauri.mjs dev"
   },
   "devDependencies": {

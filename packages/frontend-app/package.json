@@ -7,7 +7,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "check": "tsc --noEmit",
+    "build:dependencies": "pnpm --dir ../.. build:frontend-dependencies",
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit",
     "test": "tsx --test src/entities/system/model/system-status.test.ts"
   },
   "dependencies": {

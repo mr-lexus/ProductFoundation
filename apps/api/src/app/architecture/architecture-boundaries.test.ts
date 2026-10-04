@@ -1,5 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  referenceDurableProbeCreateRpcContract,
+  referenceDurableProbeStatusRpcContract,
+  systemPingRpcContract
+} from "@app/contracts";
 import type {
   ClaimedOutboxMessage,
   OutboxStore,
@@ -19,6 +24,19 @@ import {
   assertTenantRuntimeRoleSafe,
   PostgresTenantTransactionRunner
 } from "@product-foundation/backend-postgres";
+
+test("public RPC contracts have unique procedure IDs and paths", () => {
+  const contracts = [
+    referenceDurableProbeCreateRpcContract,
+    referenceDurableProbeStatusRpcContract,
+    systemPingRpcContract
+  ];
+  assert.equal(new Set(contracts.map((contract) => contract.id)).size, contracts.length);
+  assert.equal(new Set(contracts.map((contract) => contract.path)).size, contracts.length);
+  for (const contract of contracts) {
+    assert.match(contract.path, /^\/rpc\/v\d+\/[a-z0-9-]+$/);
+  }
+});
 
 function context(): AuthorizedRequestContext {
   return {

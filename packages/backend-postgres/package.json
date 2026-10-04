@@ -16,9 +16,13 @@
   ],
   "scripts": {
     "build:dependencies": "pnpm --filter @product-foundation/backend-core build",
-    "build": "pnpm build:dependencies && tsc -p tsconfig.build.json",
-    "check": "pnpm build:dependencies && tsc --noEmit",
-    "test": "pnpm test:integration",
+    "build": "pnpm build:dependencies && pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "pnpm build:dependencies && pnpm test:unit:package",
+    "test:unit:package": "tsx --test src/postgres-outbox-store.test.ts",
     "test:integration": "node ../../scripts/require-test-database.mjs && pnpm build:dependencies && tsx --test src/postgres.integration.test.ts"
   },
   "dependencies": {

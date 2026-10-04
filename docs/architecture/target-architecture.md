@@ -30,8 +30,9 @@ Frontend использует облегчённый Feature-Sliced Design:
 app → pages → widgets → features → entities → shared
 ```
 
-Server state хранится в TanStack Query. Zustand используется только для общего
-client state. Прямой transport code разрешён только в `shared/api`.
+Server state хранится в TanStack Query. Если продукту действительно нужен общий client state,
+он может отдельно добавить Zustand; foundation не устанавливает неиспользуемый store. Прямой
+transport code разрешён только в `shared/api`.
 
 ## Backend
 

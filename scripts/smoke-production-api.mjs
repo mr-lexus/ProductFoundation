@@ -3,7 +3,14 @@ import { spawn } from "node:child_process";
 const port = 39_127;
 const baseUrl = `http://127.0.0.1:${port}`;
 const child = spawn(process.execPath, ["--enable-source-maps", "apps/api/dist/server.js"], {
-  env: { ...process.env, PORT: String(port) },
+  env: {
+    ...process.env,
+    CORS_ORIGINS: "http://127.0.0.1:1420",
+    DATABASE_URL: "postgresql://compiled_smoke:compiled_smoke@127.0.0.1:1/compiled_smoke",
+    LOG_LEVEL: "silent",
+    NODE_ENV: "production",
+    PORT: String(port)
+  },
   stdio: ["ignore", "pipe", "pipe"]
 });
 
@@ -44,7 +51,7 @@ async function waitForApi() {
 
 try {
   await waitForApi();
-  process.stdout.write("Production API smoke test passed.\n");
+  process.stdout.write("Compiled production API boot smoke passed.\n");
 } finally {
   child.kill("SIGTERM");
   await Promise.race([

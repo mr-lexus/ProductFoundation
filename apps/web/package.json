@@ -4,10 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "build:dependencies": "pnpm --dir ../.. build:frontend-dependencies",
+    "dev": "pnpm build:dependencies && vite",
+    "dev:runtime": "vite",
+    "build": "pnpm build:dependencies && vite build",
+    "build:runtime": "vite build",
     "preview": "vite preview",
-    "check": "tsc --noEmit"
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit"
   },
   "dependencies": {
     "@app/frontend-app": "workspace:*",

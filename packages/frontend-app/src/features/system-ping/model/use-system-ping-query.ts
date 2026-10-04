@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { createSystemStatusModel } from "../../../entities/system";
 import { queryKeys } from "../../../shared/api/query-keys";
 import { pingSystem } from "../../../shared/api/system/ping-system";
 import type { FrontendPlatformConfig } from "../../../shared/config/platform";
-import { createSystemPingViewModel } from "./create-system-ping-view-model";
 
 export function useSystemPingQuery(platform: FrontendPlatformConfig) {
   return useQuery({
@@ -16,7 +16,7 @@ export function useSystemPingQuery(platform: FrontendPlatformConfig) {
         { signal }
       );
 
-      return createSystemPingViewModel(result, platform.apiBaseUrl);
+      return createSystemStatusModel(result, platform.apiBaseUrl);
     }
   });
 }

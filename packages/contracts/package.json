@@ -14,8 +14,11 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm --filter @product-foundation/rpc build && tsc -p tsconfig.build.json",
-    "check": "tsc --noEmit"
+    "build:dependencies": "pnpm --filter @product-foundation/rpc build",
+    "build": "pnpm build:dependencies && pnpm build:package",
+    "build:package": "tsc -p tsconfig.build.json",
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit"
   },
   "dependencies": {
     "@product-foundation/rpc": "workspace:*",

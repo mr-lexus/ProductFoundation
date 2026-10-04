@@ -4,13 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "build:dependencies": "pnpm --dir ../.. build:frontend-dependencies",
     "build": "node ../../scripts/run-frontend-platform.mjs mobile build",
     "cap:add:android": "cap add android",
     "cap:add:ios": "cap add ios",
     "cap:sync": "pnpm build && cap sync",
     "cap:open:android": "cap open android",
     "cap:open:ios": "cap open ios",
-    "check": "tsc --noEmit"
+    "check": "pnpm build:dependencies && pnpm check:package",
+    "check:package": "tsc --noEmit"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.0",

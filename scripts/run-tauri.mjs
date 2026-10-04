@@ -19,6 +19,9 @@ if (apiUrl.protocol !== "https:" && apiUrl.protocol !== "http:") {
 if (apiUrl.username !== "" || apiUrl.password !== "") {
   throw new Error("VITE_API_URL must not contain credentials.");
 }
+if (apiUrl.origin !== rawApiUrl) {
+  throw new Error("VITE_API_URL must be an exact origin without a path, query, or fragment.");
+}
 if (command === "build" && apiUrl.protocol !== "https:" && process.env.CI !== "true") {
   throw new Error("Production Tauri builds require an HTTPS VITE_API_URL.");
 }

@@ -6,7 +6,10 @@ control alone.
 - Set the default branch to `main` (CI also supports `master` during migration).
 - Require pull requests, one approving review, resolved conversations, and dismissal of stale
   approvals for protected paths.
-- Require `verify`, `platform-shells`, `compose-smoke`, `dependency-review`, and CodeQL checks.
+- Require `verify`, `platform-shells`, `rename-smoke`, `dependency-review`, and the CodeQL
+  `analyze` check. On private repositories without GitHub Code Security, `dependency-review`
+  performs a complete high-severity lockfile audit and `analyze` records that CodeQL is unavailable;
+  the native GitHub checks activate automatically when the repository is public.
 - Prevent force pushes and branch deletion; include administrators unless a documented emergency
   process requires otherwise.
 - Enable private vulnerability reporting, Dependabot alerts/security updates, secret scanning with

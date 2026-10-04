@@ -21,6 +21,10 @@ runtime-оболочки и базовые механизмы надёжност
 Это техническая основа: копируем репозиторий, добавляем продуктовый слой и
 начинаем разработку.
 
+Релизы foundation являются snapshot-версиями шаблона, а не автоматически обновляемым framework.
+Скопированный продукт владеет своим foundation-кодом и переносит последующие исправления явно;
+подробности находятся в [template lifecycle](./docs/architecture/template-lifecycle.md).
+
 ## Что уже настроено
 
 - единый React frontend для browser, Capacitor и Tauri;
@@ -128,6 +132,13 @@ Tauri build без bundling. Pull requests проходят dependency review, C
 - дизайн-система и готовый интерфейс;
 - cloud-specific deployment и secrets manager;
 - внешние search, queue, storage и realtime-сервисы.
+
+## Известные ограничения beta
+
+- скопированные репозитории не получают автоматические обновления foundation;
+- authentication, permission vocabulary и deployment security выбирает продукт;
+- Android, iOS и desktop release signing остаются ответственностью продукта;
+- статус public beta требует зелёной полной acceptance matrix в публичном репозитории.
 
 Эти решения добавляются только тогда, когда известны требования продукта.
 
