@@ -1,5 +1,7 @@
 # Runtime environment contract
 
+[Русская версия](./environment-contract-RU.md)
+
 Configuration is parsed once at process startup. Invalid values stop startup;
 feature code must not read `process.env` directly.
 

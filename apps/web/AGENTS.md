@@ -1,5 +1,7 @@
 # Web runtime
 
+[Русская версия](./AGENTS-RU.md)
+
 This shell owns browser bootstrap, Web-only PWA configuration and update UI.
 Import product UI through `@app/frontend-app`; do not put product features here.
 Platform identity is a literal, not a build environment switch.

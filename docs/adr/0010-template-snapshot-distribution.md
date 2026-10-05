@@ -1,5 +1,7 @@
 # ADR 0010: Foundation releases are template snapshots
 
+[Русская версия](./0010-template-snapshot-distribution-RU.md)
+
 - Status: accepted
 - Date: 2026-07-16
 

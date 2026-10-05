@@ -1,5 +1,7 @@
 # ADR 0003: Reserved pre-foundation backend experiment
 
+[Русская версия](./0003-reserved-pre-foundation-experiment-RU.md)
+
 - Status: Superseded before public beta
 - Date: 2026-07-11
 

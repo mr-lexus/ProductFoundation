@@ -1,5 +1,7 @@
 # AI Development Rules — Backend Core
 
+[Русская версия](./AGENTS-RU.md)
+
 `@product-foundation/backend-core` contains only framework-neutral application
 ports, global/tenant operation scope, durable orchestration and shared backend
 types.

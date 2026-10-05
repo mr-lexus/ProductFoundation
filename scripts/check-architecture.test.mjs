@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { frontendImportViolation, frontendSourceViolation } from "./frontend-boundaries.mjs";
+import {
+  frontendFsdImportViolation,
+  frontendImportViolation,
+  frontendSourceViolation
+} from "./frontend-boundaries.mjs";
 import { readImports } from "./read-imports.mjs";
 
 test("platform boundaries reject imports, reexports, dynamic imports and manifest dependencies", () => {
@@ -49,6 +53,35 @@ test("shared/native source cannot register a worker or read frontend build setti
   );
   assert.equal(
     frontendSourceViolation("apps/web/src/main.tsx", "navigator.serviceWorker"),
+    undefined
+  );
+});
+
+test("FSD boundaries cannot be bypassed by conventional or package self aliases", () => {
+  const source = "packages/frontend-app/src/entities/system/model/status.ts";
+  for (const specifier of [
+    "../../../features/system-ping",
+    "@/features/system-ping",
+    "@app/frontend-app/src/features/system-ping"
+  ]) {
+    assert.match(frontendFsdImportViolation(source, specifier) ?? "", /points upward/);
+  }
+
+  const page = "packages/frontend-app/src/pages/foundation-status/ui/page.tsx";
+  for (const specifier of [
+    "../../../entities/system/model/system-status",
+    "@/entities/system/model/system-status",
+    "@app/frontend-app/entities/system/model/system-status"
+  ]) {
+    assert.match(frontendFsdImportViolation(page, specifier) ?? "", /public API/);
+  }
+
+  assert.equal(frontendFsdImportViolation(page, "@/entities/system"), undefined);
+  assert.equal(
+    frontendFsdImportViolation(
+      "packages/frontend-app/src/entities/system/model/status.ts",
+      "@/entities/system/model/normalize"
+    ),
     undefined
   );
 });

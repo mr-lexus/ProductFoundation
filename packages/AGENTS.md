@@ -1,5 +1,7 @@
 # AI Development Rules — Packages
 
+[Русская версия](./AGENTS-RU.md)
+
 Packages expose deliberate public APIs and never depend on concrete app shells.
 
 Namespaces:

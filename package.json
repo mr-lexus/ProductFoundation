@@ -46,7 +46,7 @@
     "format": "biome check --write .",
     "test": "pnpm test:unit",
     "test:unit": "pnpm build:contracts && pnpm --filter @product-foundation/rpc-client test:package && pnpm --filter @product-foundation/rpc-server test:package && pnpm --filter @product-foundation/backend-core test && pnpm --filter @product-foundation/backend-postgres test:unit:package && pnpm --filter @app/frontend-app test && pnpm --filter @app/api test:unit:package",
-    "test:tooling": "node --test scripts/read-imports.test.mjs scripts/rename-product.test.mjs scripts/native-runtime-config.test.mjs scripts/check-architecture.test.mjs scripts/frontend-build-config.test.mjs scripts/native-ci-changes.test.mjs",
+    "test:tooling": "node --test scripts/read-imports.test.mjs scripts/rename-product.test.mjs scripts/native-runtime-config.test.mjs scripts/check-architecture.test.mjs scripts/frontend-build-config.test.mjs scripts/native-ci-changes.test.mjs scripts/check-markdown-links.test.mjs",
     "test:integration": "pnpm --filter @product-foundation/backend-postgres test:integration && pnpm --filter @app/api test:integration",
     "check": "pnpm check:hygiene && pnpm check:docs && pnpm check:static && pnpm check:architecture && pnpm check:types && pnpm test:tooling && pnpm test:unit",
     "check:ci": "pnpm check && pnpm test:integration",

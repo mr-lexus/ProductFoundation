@@ -1,7 +1,12 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { frontendImportViolation, frontendSourceViolation } from "./frontend-boundaries.mjs";
+import ts from "typescript";
+import {
+  frontendFsdImportViolation,
+  frontendImportViolation,
+  frontendSourceViolation
+} from "./frontend-boundaries.mjs";
 import { readImports } from "./read-imports.mjs";
 
 const workspaceRoot = process.cwd();
@@ -27,6 +32,31 @@ const ignoredDirectories = new Set([
   "target"
 ]);
 const violations = [];
+
+function checkFrontendPathAliases() {
+  const configPath = path.join(workspaceRoot, "packages", "frontend-app", "tsconfig.json");
+  let configDiagnostic;
+  const parsed = ts.getParsedCommandLineOfConfigFile(
+    configPath,
+    {},
+    {
+      ...ts.sys,
+      onUnRecoverableConfigFileDiagnostic(diagnostic) {
+        configDiagnostic = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n");
+      }
+    }
+  );
+  if (configDiagnostic !== undefined) {
+    addViolation(configPath, `could not inspect frontend TypeScript config: ${configDiagnostic}`);
+    return;
+  }
+  if (Object.keys(parsed?.options.paths ?? {}).length > 0) {
+    addViolation(
+      configPath,
+      "shared frontend path aliases are disabled so FSD checks and TypeScript resolution cannot drift"
+    );
+  }
+}
 
 async function collectSourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -58,49 +88,12 @@ function resolveRelativeImport(filePath, specifier) {
   return path.resolve(path.dirname(filePath), specifier);
 }
 
-function frontendSegments(filePath) {
-  return path.relative(frontendRoot, filePath).split(path.sep);
-}
-
 function checkFrontendImport(filePath, specifier) {
   if (/^@app\/(?:api|web|mobile|desktop)(?:\/|$)/.test(specifier)) {
     addViolation(filePath, `shared frontend must not depend on runtime app "${specifier}"`);
   }
-
-  if (!specifier.startsWith(".")) {
-    return;
-  }
-
-  const target = resolveRelativeImport(filePath, specifier);
-  const sourceParts = frontendSegments(filePath);
-  const targetParts = frontendSegments(target);
-  const layers = ["shared", "entities", "features", "widgets", "pages", "app"];
-  const sourceLayer = sourceParts[0];
-  const targetLayer = targetParts[0];
-  const sourceRank = layers.indexOf(sourceLayer);
-  const targetRank = layers.indexOf(targetLayer);
-
-  if (sourceRank === -1 || targetRank === -1) {
-    return;
-  }
-
-  if (targetRank > sourceRank) {
-    addViolation(filePath, `FSD dependency points upward from ${sourceLayer} to ${targetLayer}`);
-  }
-
-  const publicApiLayers = new Set(["entities", "features", "widgets", "pages"]);
-  if (publicApiLayers.has(targetLayer) && targetParts.length > 2) {
-    const sourceSlice = sourceParts[1];
-    const targetSlice = targetParts[1];
-    const staysInsideSlice = sourceLayer === targetLayer && sourceSlice === targetSlice;
-
-    if (!staysInsideSlice) {
-      addViolation(
-        filePath,
-        `cross-slice import "${specifier}" bypasses the ${targetLayer}/${targetSlice} public API`
-      );
-    }
-  }
+  const fsdViolation = frontendFsdImportViolation(relativeFromWorkspace(filePath), specifier);
+  if (fsdViolation) addViolation(filePath, `${fsdViolation}: "${specifier}"`);
 }
 
 function checkApiImport(filePath, specifier) {
@@ -419,6 +412,7 @@ const files = [
   ...(await collectSourceFiles(packagesRoot)),
   ...(await collectSourceFiles(appsRoot))
 ];
+checkFrontendPathAliases();
 checkManifestBoundaries(await workspaceManifests());
 await Promise.all(files.map(checkFile));
 

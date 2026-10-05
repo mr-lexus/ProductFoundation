@@ -1,83 +1,169 @@
 # Product Foundation
 
-Production-oriented, product-neutral foundation for building long-lived web,
-mobile, and desktop applications on a shared TypeScript stack.
-
 [Русская версия](./README-RU.md)
 
-**Maturity:** production-oriented public beta. The foundation is designed for production use,
-but remains beta until the reference durable flow and all acceptance jobs pass on the public
-repository. A copied product still has to complete the product security and operations checklist
-described below before serving real traffic.
+A production-oriented, product-neutral TypeScript foundation for long-lived applications that
+share one product codebase across Web, iOS/Android through Capacitor, and desktop through Tauri,
+with a NestJS/Fastify API, PostgreSQL, typed RPC, and background processing.
 
-## What it is
+**Maturity:** public beta. The implemented mechanisms and verification matrix are documented, but
+a copied product is not ready for real traffic until it supplies its own identity, authorization,
+deployment, recovery, and product-specific tests.
 
-Product Foundation is a reusable monorepo for launching multiple products on a
-shared stack. It provides enforceable architecture boundaries, runtime shells,
-and reliability primitives without coupling the repository to a business
-domain, design system, or authentication provider.
+## What it is — and why it is not a typical starter
 
-It is not a collection of preinstalled libraries and it is not a ready-made
-SaaS product. It is the technical foundation: copy the repository, add the
-product layer, and start building.
+Product Foundation is for teams building a modular monolith expected to evolve for years while
+keeping frontend runtimes, API contracts, database changes, and asynchronous work under explicit
+ownership. It fixes recurring technical decisions once, then leaves product behavior to the
+product repository.
 
-Releases are template snapshots, not automatic framework upgrades. A copied product owns its
-foundation code and reviews later fixes explicitly; see the
-[template lifecycle](./docs/architecture/template-lifecycle.md).
+It is not a React/Nest/Postgres sample held together by conventions. Its central decisions are
+executable: public RPC input and output are validated at runtime; durable mutations commit state,
+the idempotency result, and outbox messages together; tenant isolation has a forced-RLS contract;
+runtime shells and package dependency directions are checked in CI.
 
-## What is included
+It is also not a framework, a finished SaaS application, or a catalogue of speculative adapters.
+Copying the repository creates an independently owned product snapshot.
 
-- one React frontend shared by browser, Capacitor, and Tauri;
-- independent runtime entrypoints/artifacts and a Web-only installable PWA shell;
-- NestJS + Fastify backend;
-- PostgreSQL and versioned SQL migrations;
-- contract-first RPC with Zod runtime validation;
-- transactionally atomic PostgreSQL idempotency for mutations;
-- global scope or tenant execution context with mandatory forced-RLS verification;
-- transactional outbox, retry, dead-letter, and retention;
-- an executable durable reference mutation covered over HTTP and in Compose;
-- a separate background worker with health checks and Prometheus metrics;
-- request IDs, CORS, Helmet, rate/body limits, and safe structured logs;
-- Biome, TypeScript, unit/integration tests, and architecture gates;
-- production Docker image, Docker Compose smoke, and GitHub Actions;
-- rules for AI agents and human-readable developer documentation.
+## Engineering decisions already made
 
-## Architecture model
+| Concern | Foundation approach |
+| --- | --- |
+| Product contracts | Versioned procedure contracts and Zod runtime input/output validation |
+| Client/server communication | Transport-independent typed RPC |
+| Mutation retries | PostgreSQL-backed idempotency with payload conflict detection |
+| State plus asynchronous effects | One transaction for state, idempotency result, and outbox |
+| Worker failures | Leases, retry, claim fencing, dead letters, inspection, and retention |
+| Tenant isolation | Explicit tenant scope, forced PostgreSQL RLS contract, and negative tests |
+| Database evolution | Ordered, immutable, checksummed SQL migrations |
+| Server state | TanStack Query |
+| Product UI | One shared React application |
+| Platforms | Independent Web, Capacitor, and Tauri runtime shells |
+| Architecture | Executable ownership, dependency, framework, and driver boundaries |
+| AI-assisted work | Repository-local rules plus deterministic verification and CI |
 
-```text
-apps/                         runtime and composition
-  api/                        NestJS API, product modules, worker
-  web/                        browser shell
-  mobile/                     Capacitor shell
-  desktop/                    Tauri shell
+## System model
 
-packages/                     reusable code
-  contracts/                  product RPC schemas and DTOs
-  frontend-app/               shared React application
-  rpc/                        framework-neutral RPC protocol
-  rpc-client/                 framework-neutral RPC client
-  rpc-server/                 framework-neutral RPC executor
-  backend-core/               backend ports and durable orchestration
-  backend-postgres/           PostgreSQL adapters and foundation migrations
-  config/                     shared tooling configuration
+```mermaid
+flowchart TB
+  Web[Web shell] --> UI[Shared React product]
+  Mobile[Capacitor shell] --> UI
+  Desktop[Tauri shell] --> UI
+  UI --> Client[Typed RPC client]
+  Client --> Contracts[Versioned product contracts]
+  Contracts --> API[NestJS / Fastify API]
+  API --> Modules[Product modules]
+  Modules --> Tx[One PostgreSQL transaction]
+  Tx --> State[Product state]
+  Tx --> Idempotency[Validated idempotency result]
+  Tx --> Outbox[Outbox message]
+  Outbox --> Worker[Worker: retry / dead letter]
 ```
 
-`@product-foundation/*` is the product-neutral technical core. It never depends
-on product code.
+The diagram is an ownership and consistency model, not a package inventory. PostgreSQL is the
+source of truth. External effects happen after commit through idempotent worker handlers; they are
+not hidden inside an HTTP transaction.
 
-`@app/*` is the replaceable product layer: contracts, UI, backend capabilities,
-and configuration.
+## Four parts of the foundation
 
-Web, mobile, and desktop expose the same application from `frontend-app`.
-Platform-specific code stays inside thin runtime shells.
+### Reliability-oriented backend
 
-## Quick start
+The backend mechanisms address specific failure modes:
 
-Requirements:
+- versioned, checksummed migrations make schema history reviewable and reject edited history;
+- contract validation prevents unvalidated wire values from entering or leaving a handler;
+- every RPC mutation requires a durable idempotency key, so safe retries return the stored result;
+- product state, the validated result, and outbox append commit or roll back together;
+- worker leases, fencing tokens, retry, dead letters, and retention make at-least-once delivery
+  operable without pretending it is exactly once;
+- tenant mode is complete only when tenant-owned tables force RLS and negative cross-tenant tests
+  pass under the non-superuser runtime role;
+- API and worker expose health, readiness, structured diagnostics, and low-cardinality metrics.
 
-- Node.js 24;
-- pnpm 11.7.0;
-- PostgreSQL 17 or Docker for the local database.
+The [durable reference flow](./docs/architecture/reference-durable-flow.md) proves the central
+transaction/outbox invariant against PostgreSQL, over HTTP, and in the Compose runtime.
+
+### One frontend, independent runtime shells
+
+Most product UI and product flows live once in [`packages/frontend-app`](./packages/frontend-app).
+[`apps/web`](./apps/web), [`apps/mobile`](./apps/mobile), and
+[`apps/desktop`](./apps/desktop) own only their entrypoint, build/runtime configuration, artifacts,
+platform lifecycle, packaging, and real platform integrations. The shared application does not
+import Capacitor, Tauri, PWA implementation code, or `import.meta.env`.
+
+When a real feature needs a platform capability, add the smallest explicit interface at the
+consumer boundary and supply Web/Mobile/Desktop adapters from the shells:
+
+```text
+feature → explicit capability interface ← shell adapter
+```
+
+Do not introduce a generic `PlatformServices` registry, and do not spread `if (platform === ...)`,
+`Capacitor.*`, or Tauri calls through shared product code.
+
+The frontend uses a lightweight Feature-Sliced direction:
+
+```text
+app → pages → widgets → features → entities → shared
+```
+
+These layers exist for predictable ownership, discoverability, and downward dependencies. They are
+not a requirement to manufacture a feature/entity/widget for every component. Prefer the simplest
+placement that preserves a clear owner; `features/open-modal`, `features/change-input`, and
+`entities/button` are not useful architecture. Server state belongs to TanStack Query, local state
+to React, and a global client store is added only for a demonstrated product need.
+
+### Contract-first RPC
+
+Product boundaries and protocol mechanics have different owners:
+
+- [`packages/contracts`](./packages/contracts) owns public product procedures, DTOs, and schemas;
+- [`packages/rpc`](./packages/rpc) owns protocol envelopes, errors, and procedure primitives;
+- [`packages/rpc-client`](./packages/rpc-client) and
+  [`packages/rpc-server`](./packages/rpc-server) execute that protocol;
+- [`apps/api`](./apps/api) owns concrete product handlers and runtime composition.
+
+```text
+frontend feature
+  → typed RPC client
+  → product contract
+  → runtime input validation
+  → handler
+  → runtime output validation
+  → typed result
+```
+
+Contracts contain public wire boundaries, not repositories, services, NestJS DTOs, or business
+orchestration. This localizes breaking changes, keeps transport/framework details out of product
+schemas, and gives frontend, backend, humans, and coding agents the same explicit boundary.
+
+### Executable architecture and AI-assisted development
+
+Product Foundation is structured so human developers and coding agents operate under the same
+architectural constraints:
+
+```text
+nearest AGENTS.md
+  → architecture intent and predictable locations
+  → executable dependency/ownership checks
+  → tests and CI
+```
+
+The goal is not to let an agent redesign the system for every task. Repeated decisions—where a
+contract lives, which direction dependencies point, which shell owns platform code, and which
+transaction a mutation uses—are encoded once so implementation work can focus mainly on product
+behavior. Checks enforce important boundaries independently of prompt compliance. They reduce the
+space of incorrect changes; they do not guarantee that generated code is correct.
+
+Examples checked automatically include FSD direction and slice public APIs; shell ownership of
+Capacitor, Tauri, and PWA code; absence of build-environment access in the shared frontend; direct
+`fetch` ownership; foundation-to-product dependency direction; backend framework/driver
+boundaries; workspace cycles; and package ownership. See
+[executable architecture](./docs/architecture/executable-architecture.md).
+
+## Shortest useful path
+
+Requirements: Node.js 24, pnpm 11.7.0, and Docker with Compose (or PostgreSQL 17).
 
 ```bash
 pnpm install --frozen-lockfile
@@ -88,81 +174,90 @@ pnpm dev:demo
 ```
 
 - Web: `http://localhost:1420`
-- API: `http://localhost:3001`
 - API readiness: `http://localhost:3001/health/ready`
 - API metrics: `http://localhost:3001/metrics`
 
-## Repository verification
+Then inspect the system ping and durable flow, preview the product rename, choose `global` or
+`tenant` data scope, and create the first product capability. The exact sequence and commands are
+in the [Developer guide](./DEVELOPER_GUIDE.md).
 
-```bash
-pnpm check          # deterministic static checks and unit tests
-TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
-pnpm build          # production web and API
-pnpm smoke:api      # compiled API smoke test
-pnpm smoke:compose  # PostgreSQL, migrations, API, and worker
-pnpm check:native   # Capacitor config and Rust/Tauri
+## Follow the durable reference flow
+
+There is one deliberately technical reference capability rather than a fake SaaS domain:
+
+```text
+validated durable mutation
+  → one PostgreSQL transaction
+      ├─ product state
+      ├─ idempotency result
+      └─ outbox event
+  → worker claim
+  → retry or dead letter on failure
 ```
 
-CI additionally runs PostgreSQL integration tests, the Compose smoke test, and
-a Tauri build without bundling. Pull requests receive dependency review, CodeQL
-runs on pushes/PRs and weekly, and Dependabot maintains npm, Cargo and Actions refs.
+Read it in order:
 
-Every PR also checks PWA browser behavior, artifact isolation and Android compilation.
-Relevant PRs plus weekly/manual runs compile Tauri on Windows/macOS and an unsigned
-iOS simulator app on macOS. See [verification limits](./docs/architecture/foundation-readiness.md).
+1. [product contract](./packages/contracts/src/reference-durable-probe.ts);
+2. [application handler](./apps/api/src/modules/reference/application/create-reference-durable-probe.ts);
+3. [PostgreSQL repository](./apps/api/src/modules/reference/infrastructure/postgres-reference-durable-probe.repository.ts)
+   and [product migration](./apps/api/migrations/0001_reference_durable_probe.sql);
+4. [worker handler](./apps/api/src/modules/reference/infrastructure/create-reference-durable-probe-outbox-handler.ts)
+   and [registration](./apps/api/src/app/worker/create-outbox-handlers.ts);
+5. [HTTP/PostgreSQL integration test](./apps/api/src/app/http/reference-durable-probe.integration.test.ts)
+   and [Compose smoke](./scripts/smoke-compose.mjs);
+6. [flow explanation](./docs/architecture/reference-durable-flow.md).
 
-## Starting a new product
+Products can remove the reference capability after their first real vertical slice provides
+equivalent coverage.
 
-1. Preview and apply the safe rename command documented in the developer guide.
-2. Choose `DATA_SCOPE_MODE=global` or `tenant`.
-3. Add the first contract to `packages/contracts`.
-4. Create a backend capability in `apps/api/src/modules`.
-5. Add a product migration to `apps/api/migrations`.
-6. Create the first frontend vertical slice in `packages/frontend-app`.
-7. Connect the selected identity, permissions, design system, and deployment.
+## What remains a product decision
 
-For a tenant product, follow the mandatory
-[tenant isolation contract](./docs/architecture/tenant-isolation.md). Tenant context alone is
-not isolation: every tenant-owned table must force RLS and pass negative cross-tenant tests.
+Product Foundation intentionally does not choose the product domain, identity/session provider,
+permission vocabulary, design system, global client store, object storage, search, realtime,
+external queue, deployment platform, secrets system, telemetry backend, signing, or store release
+process. It does not add abstractions for those concerns before a product has a concrete consumer.
 
-Read [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) for a concise map of the
-repository and its rules.
+Before real traffic, the product owns its threat model, identity and authorization, tenant policies
+when applicable, secret and deployment isolation, alerts, backup/restore drills, data retention,
+and product-specific integration and recovery tests. See [SECURITY.md](./SECURITY.md).
 
-## Intentionally not included
+## Snapshot lifecycle and trade-off
 
-- product-specific business logic;
-- an identity provider or session model;
-- a product permission vocabulary;
-- a design system or finished UI;
-- cloud-specific deployment or a secrets manager;
-- external search, queue, storage, or realtime services.
+Foundation releases are template snapshots, not automatic framework upgrades. After copying:
 
-## Known beta limitations
+- the foundation code belongs to the product;
+- `FOUNDATION_VERSION` records the starting point;
+- upstream security, data-integrity, and reliability fixes are reviewed and ported deliberately;
+- product migrations and contracts never receive unattended merges.
 
-- copied repositories do not receive automatic foundation updates;
-- authentication, authorization vocabulary and deployment security are product decisions;
-- Android, iOS and desktop release signing remain product-owned;
-- public-beta claims require the complete CI acceptance matrix to pass on the public repository.
+This trades update convenience for explicit ownership and safer reconciliation. Read the
+[template lifecycle](./docs/architecture/template-lifecycle.md) before substantial product work.
 
-These decisions are added only when the product requirements are known.
+## Verification
 
-## Production boundary
+```bash
+pnpm check          # docs, hygiene, static, architecture, types, tooling, unit tests
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
+pnpm build          # production Web and API
+pnpm smoke:api      # compiled API smoke
+pnpm smoke:compose  # migrations, API, durable mutation, outbox, worker
+pnpm check:native   # Capacitor configuration and Rust/Tauri
+```
 
-The foundation is ready to be copied and extended; a copied application is not production-ready
-merely because the foundation checks pass. Before real traffic, the product must complete its
-identity/session model, authorization rules, threat model, tenant policies when applicable,
-secret management, deployment isolation, alerts, backup/restore drill, and product-specific
-integration tests.
+CI also verifies PWA behavior, isolated frontend artifacts, Android compilation, Tauri builds,
+rename safety, dependency changes, and CodeQL where available. Verification scope and limits are
+documented in [foundation readiness](./docs/architecture/foundation-readiness.md).
 
-## Documentation
+## Documentation map
 
-- [Developer guide](./DEVELOPER_GUIDE.md)
-- [Architecture overview](./docs/architecture/README.md)
-- [Foundation readiness](./docs/architecture/foundation-readiness.md)
-- [Executable durable reference flow](./docs/architecture/reference-durable-flow.md)
-- [Threat model](./docs/architecture/threat-model.md)
-- [Architecture decisions](./docs/adr)
+- [Developer guide](./DEVELOPER_GUIDE.md) — practical onboarding and change map
+- [Architecture overview](./docs/architecture/README.md) — rationale and deeper rules
+- [Where to put code](./docs/architecture/where-to-put-code.md)
+- [RPC protocol](./docs/architecture/rpc-protocol.md)
+- [Tenant isolation](./docs/architecture/tenant-isolation.md)
+- [Operations runbook](./docs/architecture/operations-runbook.md)
+- [Architecture decisions](./docs/adr/README.md)
+- [Complete documentation index](./docs/README.md)
 - [AI development rules](./AGENTS.md)
-- [Contributing](./CONTRIBUTING.md)
-- [Security policy](./SECURITY.md)
-- [MIT license](./LICENSE)
+- [Contributing](./CONTRIBUTING.md), [security](./SECURITY.md), [changelog](./CHANGELOG.md), and
+  [MIT license](./docs/license.md)

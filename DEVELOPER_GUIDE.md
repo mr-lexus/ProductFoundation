@@ -2,132 +2,50 @@
 
 [Русская версия](./DEVELOPER_GUIDE-RU.md)
 
-## Purpose
+This is the practical map for starting and changing a product. The root [README](./README.md)
+explains the system model; [architecture documentation](./docs/architecture/README.md) records
+rationale and deeper rules.
 
-Product Foundation is a product-neutral technical baseline. It contains one shared frontend,
-a NestJS API, contract-first RPC, PostgreSQL adapters, a worker, verification, Docker and CI.
-It intentionally does not choose a product domain, identity provider or design system.
+## First hour in the repository
 
-## Repository map
+For evaluation, clone the repository. For a product, copy a tagged foundation release and keep its
+`FOUNDATION_VERSION`; do not start from an arbitrary branch revision.
 
-```text
-apps/
-  api/          NestJS composition, product backend modules and worker
-  web/          Vite shell for the shared frontend
-  mobile/       Capacitor shell
-  desktop/      Tauri shell
+### 1. Run the reference application
 
-packages/
-  contracts/          product Zod/RPC contracts
-  frontend-app/       shared React application
-  rpc/                protocol and envelopes
-  rpc-client/         fetch/cancellation/typed errors
-  rpc-server/         validation and procedure execution
-  backend-core/       ports, operation scope, idempotency and outbox orchestration
-  backend-postgres/   PostgreSQL adapters and foundation migrations
-  config/             shared tooling configuration
-```
-
-`@product-foundation/*` is reusable technical code. `@app/*` is the replaceable product
-layer. Foundation packages never import product packages.
-
-## Starting a product
-
-1. Rename the placeholder identifiers listed below.
-2. Choose `DATA_SCOPE_MODE=global` or `tenant`.
-3. Choose the identity/session model and permission vocabulary.
-4. Add the first public contract in `packages/contracts`.
-5. Add a backend capability in `apps/api/src/modules/<name>`.
-6. Add product SQL migrations in `apps/api/migrations`.
-7. Add a frontend vertical slice in `packages/frontend-app/src`.
-8. Run the relevant acceptance checks.
-
-## Backend capability
-
-```text
-apps/api/src/modules/<name>/
-  contract/       link to public contracts
-  domain/         pure business rules
-  application/    use cases, permissions, ports and transactions
-  infrastructure/ product repository adapters
-  transport/      thin NestJS controllers and module composition
-```
-
-Dependencies point inward: `transport/infrastructure → application → domain`. Domain and
-application code do not import NestJS, Fastify or `pg`.
-
-## Durable RPC mutations
-
-Every mutation requires `X-Idempotency-Key` and the invoker from
-`apps/api/src/shared/application/create-idempotent-rpc-handler-invoker.ts`.
-
-The mutation handler receives `context.execution.transaction`. All PostgreSQL state changes
-and outbox appends for that mutation must use this exact executor. The invoker validates the
-public output, completes the idempotency record and commits all effects in one transaction.
-If the handler or output validation fails, the state, outbox and ledger all roll back.
-
-Do not open a nested transaction from a mutation handler. External side effects cannot be
-made atomic with PostgreSQL; write an outbox event in the transaction and deliver it through
-an idempotent worker handler.
-
-Concurrent duplicates are fenced by a transaction-scoped PostgreSQL advisory try-lock. Long work
-still becomes a short transaction plus an outbox event; do not hold database transactions open
-while waiting on an external system.
-
-## Global and tenant data
-
-`DATA_SCOPE_MODE=global` exposes ordinary SQL and transaction ports.
-
-`DATA_SCOPE_MODE=tenant` exposes only `TenantTransactionRunner` to product modules. The runner
-sets transaction-local `app.tenant_id` and enables row security. This context is not sufficient
-on its own: every tenant-owned table must force RLS, define an explicit policy, run under a
-non-superuser role and pass negative cross-tenant tests. Follow
-[the tenant isolation contract](./docs/architecture/tenant-isolation.md).
-
-Idempotency, outbox and audit use `OperationScope`, so global products do not invent a tenant.
-
-## PostgreSQL and worker
-
-- Foundation migrations: `packages/backend-postgres/migrations`.
-- Product migrations: `apps/api/migrations`.
-- Applied migrations are immutable and checksum-verified.
-- State changes and outbox events share one transaction.
-- Claimed outbox messages start concurrently so leases do not expire in a local queue.
-- Handlers remain idempotent because outbox delivery is at least once.
-- Worker health: `:9464/health/ready`; metrics: `:9464/metrics`.
-
-## Frontend and platforms
-
-The shared frontend follows:
-
-```text
-app → pages → widgets → features → entities → shared
-```
-
-HTTP/RPC lives in `shared/api`, server state in TanStack Query, and local state in React unless
-a real cross-component workflow requires a client store.
-
-Web uses a same-origin production API by default. `VITE_API_URL` is required for Capacitor and
-Tauri builds.
+Requirements: Node.js 24, pnpm 11.7.0, and Docker with Compose.
 
 ```bash
-pnpm build:web
-VITE_API_URL=https://api.example.com pnpm build:mobile
-VITE_API_URL=https://api.example.com pnpm tauri:build
+pnpm install --frozen-lockfile
+cp .env.example .env
+docker compose up --detach --wait database
+pnpm db:migrate:dev
+pnpm dev:demo
 ```
 
-## Rename after copying
+Open `http://localhost:1420`. Readiness is at
+`http://localhost:3001/health/ready`; metrics are at `http://localhost:3001/metrics`.
+The worker is a separate runtime:
 
-Each shell owns its entrypoint and dist; all product UI stays in frontend-app.
-Only concrete API dependencies are injected at bootstrap. There is no generic
-runtime context. Web alone includes a PWA worker and prompt-based updates.
-See [runtime commands and browser verification](./docs/architecture/local-development.md)
-and [the native origin table](./docs/architecture/environment-contract.md).
+```bash
+pnpm --filter @app/api worker:dev
+```
 
-Run initialization before generating native projects. --short-name optionally
-sets the Web manifest short name; other identity placeholders remain platform-owned.
+### 2. Inspect the two reference paths
 
-Preview a deterministic rename, review the listed files, then apply it:
+- [System ping](./docs/architecture/system-ping-flow.md) is the smallest contract → client → API →
+  React vertical slice.
+- [Reference durable flow](./docs/architecture/reference-durable-flow.md) connects a mutation to
+  PostgreSQL idempotency, product state, outbox, worker delivery, and a status query.
+
+The durable flow is also proved by the
+[HTTP integration test](./apps/api/src/app/http/reference-durable-probe.integration.test.ts) and
+[Compose smoke](./scripts/smoke-compose.mjs).
+
+### 3. Preview and apply product identity
+
+Do this before generating Android or iOS projects. Preview the deterministic rename, review every
+listed file, then apply it:
 
 ```bash
 pnpm product:rename -- --name "Example Product" --slug example-product \
@@ -136,25 +54,177 @@ pnpm product:rename -- --name "Example Product" --slug example-product \
   --id com.example.product --namespace example --write
 ```
 
-- `product-foundation-starter` — repository/root package name;
-- `Product Starter` — application titles;
-- `com.example.product` — Capacitor/Tauri identifiers;
-- `app` — product migration/schema namespace and metric prefix;
-- `@app/*` — only when the team wants its own package namespace.
+`--short-name` optionally sets the Web manifest short name. The internal
+`@product-foundation/*` namespace may remain unchanged. Rename `@app/*` only when the team wants
+a different product package namespace.
 
-The internal `@product-foundation/*` namespace may remain unchanged.
+### 4. Choose the data scope
 
-## Verification
+Set `DATA_SCOPE_MODE=global` or `tenant` deliberately.
 
-```bash
-pnpm check          # deterministic static checks and unit tests
-TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
-pnpm build          # production web/API build
-pnpm smoke:api      # compiled API
-pnpm smoke:compose  # database, migrations, API and worker
-pnpm check:native   # Capacitor config and Rust/Tauri
+- `global` exposes ordinary SQL and transaction ports.
+- `tenant` exposes product modules only to `TenantTransactionRunner`.
+
+Tenant context is not isolation by itself. Every tenant-owned table must enable and force RLS,
+define an `app.tenant_id` policy, run under the non-superuser runtime role, pass
+`assertTenantRelationsSecure`, and have negative cross-tenant tests. Follow the
+[tenant isolation contract](./docs/architecture/tenant-isolation.md).
+
+### 5. Add the first product capability
+
+1. Define the public procedure and Zod schemas in `packages/contracts/src`.
+2. Add the owning backend module under `apps/api/src/modules/<capability>`.
+3. Add product SQL in `apps/api/migrations` when state is persisted.
+4. Register the module in the API composition root.
+5. Add the typed API wrapper in `packages/frontend-app/src/shared/api`.
+6. Put query/mutation integration in the owning frontend entity or feature.
+7. Add boundary, application, and integration tests appropriate to the change.
+8. Run the relevant verification commands below.
+
+Use [where to put code](./docs/architecture/where-to-put-code.md) when the owner is not obvious.
+
+## Repository map
+
+```text
+apps/
+  api/          NestJS composition, product backend modules, worker
+  web/          Web/PWA runtime shell
+  mobile/       Capacitor runtime shell
+  desktop/      Tauri runtime shell
+
+packages/
+  contracts/          product Zod/RPC contracts
+  frontend-app/       shared React product application
+  rpc/                protocol primitives and envelopes
+  rpc-client/         typed execution, cancellation, errors
+  rpc-server/         validation and handler execution
+  backend-core/       ports, scopes, idempotency/outbox orchestration
+  backend-postgres/   PostgreSQL adapters and foundation migrations
+  config/             shared tooling configuration
 ```
 
-PostgreSQL integration tests require `TEST_DATABASE_URL` and run in CI. A copied product is not
-ready for traffic until it also completes the product-specific checklist in `README.md` and
-`SECURITY.md`.
+`@product-foundation/*` is reusable product-neutral code. `@app/*` is the replaceable product
+layer. Foundation packages never import product packages. Cross-package imports use public package
+exports.
+
+## Adding RPC procedures
+
+The contract is the navigation root for every public operation:
+
+```text
+packages/contracts
+  → frontend shared/api wrapper
+  → owning frontend entity or feature
+  → apps/api module transport
+  → application use case
+  → domain and infrastructure as required
+```
+
+For a query:
+
+- define input and output schemas and `kind: "query"`;
+- add a thin transport handler and application use case;
+- add a TanStack Query wrapper in the owning frontend slice;
+- test success, input validation, output validation, and expected public errors.
+
+For a mutation:
+
+- define `kind: "mutation"`;
+- require `X-Idempotency-Key` and use the durable mutation invoker;
+- use only `context.execution.transaction` for state and outbox writes;
+- add a TanStack mutation wrapper in the owning feature;
+- test replay, payload conflict, rollback, and external-effect delivery when applicable.
+
+Do not put repositories, business services, framework DTOs, or transport behavior in
+`packages/contracts`. See [the RPC protocol](./docs/architecture/rpc-protocol.md) for envelopes,
+versioning, cancellation, and error rules.
+
+## Backend capability shape
+
+```text
+apps/api/src/modules/<capability>/
+  contract/       local re-export/link to public contracts
+  domain/         pure business rules
+  application/    use cases, permissions, ports, transaction orchestration
+  infrastructure/ product repository and integration adapters
+  transport/      thin NestJS controllers and module composition
+```
+
+Dependencies point inward: `transport/infrastructure → application → domain`. Domain and
+application code do not import NestJS, Fastify, or `pg`. A capability does not need every
+directory; create only the layers required by its behavior.
+
+## Durable RPC mutations
+
+Every mutation uses the invoker in
+`apps/api/src/shared/application/create-idempotent-rpc-handler-invoker.ts`. The handler receives
+`context.execution.transaction`. State writes and outbox appends must use that exact executor so
+the validated output, idempotency completion, state, and outbox commit atomically.
+
+Do not open a nested transaction. Do not call an external system from the transaction. Append an
+event and use an idempotent worker handler instead. Concurrent duplicate requests are fenced by a
+transaction-scoped advisory try-lock; long work remains a short transaction plus an outbox event.
+
+## Shared frontend and runtime shells
+
+Product UI lives in `packages/frontend-app`. Each shell owns its entrypoint, runtime composition,
+build configuration, artifacts, lifecycle, and platform APIs. Only Web owns the service worker and
+PWA update UI. Capacitor imports stay in `apps/mobile`; Tauri imports stay in `apps/desktop`.
+
+```text
+app → pages → widgets → features → entities → shared
+```
+
+This lightweight Feature-Sliced direction is an ownership tool, not a directory quota. Do not
+create `features/open-modal`, `features/change-input`, or `entities/button` merely to use every
+layer. Pick the simplest location with a clear owner and downward dependencies. Cross-slice imports
+use the slice public `index.ts`.
+
+- server state: TanStack Query;
+- local component state: React;
+- shared client store: only after a concrete cross-component or long-lived workflow requires it;
+- HTTP/RPC transport: `shared/api`, not components;
+- product workflows: `features`;
+- domain meaning: `entities`.
+
+When a real feature needs native share, filesystem, notifications, or another platform difference,
+define one capability interface for that consumer and inject shell adapters. Do not add a generic
+service locator or distribute platform conditionals through shared code.
+
+Runtime commands and security constraints are in
+[local development](./docs/architecture/local-development.md) and the
+[environment contract](./docs/architecture/environment-contract.md).
+
+## PostgreSQL and worker
+
+- Foundation migrations: `packages/backend-postgres/migrations`.
+- Product migrations: `apps/api/migrations`.
+- Applied migrations are immutable and checksum-verified.
+- Outbox delivery is at least once; handlers remain idempotent.
+- Worker readiness: `:9464/health/ready`; metrics: `:9464/metrics`.
+- Inspection and confirmed replay commands are documented in the
+  [operations runbook](./docs/architecture/operations-runbook.md).
+
+## Verification map
+
+```bash
+pnpm check:docs         # Markdown links and language consistency
+pnpm check:architecture # ownership and dependency boundaries
+pnpm test:tooling       # architecture/rename/runtime tooling regressions
+pnpm check              # all deterministic local gates and unit tests
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # plus PostgreSQL integration tests
+pnpm build
+pnpm smoke:api
+pnpm smoke:compose
+pnpm check:native
+```
+
+Use the smallest relevant checks while iterating, then the complete required gate for the change.
+Database/durable changes require real PostgreSQL integration tests. Native configuration changes
+require `pnpm check:native`.
+
+## After copying
+
+Keep `FOUNDATION_VERSION`. Foundation releases are snapshots, not an automatic update channel.
+Review later upstream changelogs and port security, data-integrity, and reliability fixes through a
+normal product pull request. See [template lifecycle](./docs/architecture/template-lifecycle.md).

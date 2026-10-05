@@ -1,5 +1,7 @@
 # ADR 0012: Web-only PWA lifecycle
 
+[Русская версия](./0012-web-only-pwa-RU.md)
+
 - Status: accepted
 - Date: 2026-10-04
 

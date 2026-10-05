@@ -1,5 +1,7 @@
 # Product Foundation: finalization plan
 
+[Русская версия](./FOUNDATION_FINALIZATION_PLAN-RU.md)
+
 ## Purpose
 
 This is the last foundation-only iteration before product development starts. Its scope is fixed:

@@ -1,11 +1,13 @@
 # System ping flow
 
-`system-ping` — единственный демонстрационный vertical slice. Он не является
-продуктовой функцией и нужен для проверки всех границ болванки.
+[Русская версия](./system-ping-flow-RU.md)
+
+`system-ping` is the minimal demonstration slice. It is not a product feature;
+it verifies the starter's request/response boundaries.
 
 ```text
 packages/contracts/src/system-ping.ts
-  ↓ один Zod/RPC contract
+  ↓ one Zod/RPC contract
 packages/frontend-app/src/shared/api/create-api-client.ts
   ↓ @product-foundation/rpc-client
 POST /rpc/v1/system-ping
@@ -19,8 +21,8 @@ versioned RPC envelope
 TanStack Query → React status screen
 ```
 
-Controller отвечает только за HTTP adaptation. Executor валидирует вход, выход,
-headers и envelope. Application/domain код не импортирует NestJS или Fastify.
+The controller only adapts HTTP. The executor validates input, output, headers
+and the envelope. Application/domain code imports neither NestJS nor Fastify.
 
-Slice можно удалить после появления первого продуктового RPC, если новый RPC
-имеет такой же boundary test и используется frontend-клиентом.
+The slice can be removed after the first product RPC has equivalent boundary
+tests and is consumed by the frontend client.

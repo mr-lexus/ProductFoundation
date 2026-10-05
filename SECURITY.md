@@ -1,5 +1,7 @@
 # Security policy
 
+[Русская версия](./SECURITY-RU.md)
+
 ## Supported version
 
 Security fixes are applied to the current default branch. Copied product repositories own

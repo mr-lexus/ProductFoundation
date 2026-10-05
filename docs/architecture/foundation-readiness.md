@@ -1,25 +1,26 @@
 # Foundation readiness
 
-## Статус
+[Русская версия](./foundation-readiness-RU.md)
 
-Foundation имеет статус public beta и готов к копированию после прохождения acceptance-команд
-ниже. Статус production-ready baseline возвращается только после публикации reference durable
-flow и зелёного полного CI. Foundation не содержит предметную область, identity provider или
-дизайн-систему.
+## Status
 
-## Что гарантирует foundation
+The foundation is in public beta and is ready to copy after the acceptance
+commands below pass. A production-ready baseline claim requires a published
+durable reference flow and a successful full CI run. The foundation contains no
+product domain, identity provider or design system.
 
-- product-neutral package ownership и автоматические architecture boundaries;
-- Node.js 24 reproducible workspace и deterministic formatting/linting;
-- NestJS 11 + Fastify 5, native ESM и versioned contract-first RPC;
-- атомарную PostgreSQL idempotency: state, outbox и validated result фиксируются
-  одной mutation transaction;
-- PostgreSQL 17 transactions, namespaced migrations и product migration slot;
-- global scope или tenant execution context с обязательным forced-RLS contract;
-- transactional outbox с expiring lease, per-claim fencing token, retry, dead letters и retention;
-- API/worker health, Prometheus metrics и safe structured diagnostics;
-- реальные web/mobile/desktop build contexts и Tauri CSP;
-- Docker image, full Compose smoke и CI platform-shell job.
+## Foundation guarantees
+
+- Product-neutral package ownership and automated architecture boundaries.
+- A reproducible Node.js 24 workspace and deterministic formatting/linting.
+- NestJS 11 + Fastify 5, native ESM and versioned contract-first RPC.
+- Atomic PostgreSQL idempotency: state, outbox and validated result commit in one mutation transaction.
+- PostgreSQL 17 transactions, namespaced migrations and a product migration directory.
+- Global scope or tenant execution context with a mandatory forced-RLS contract.
+- Transactional outbox with expiring leases, per-claim fencing tokens, retry, dead letters and retention.
+- API/worker health, Prometheus metrics and safe structured diagnostics.
+- Real Web/Mobile/Desktop build contexts and Tauri CSP.
+- A Docker image, full Compose smoke and a CI platform-shell job.
 
 ## Acceptance
 
@@ -33,16 +34,16 @@ pnpm smoke:compose
 pnpm check:native
 ```
 
-`check:ci` требует PostgreSQL и не допускает silently skipped integration tests.
-`check:native` требует локальный Rust/Tauri toolchain. CI устанавливает Linux system
-dependencies и дополнительно выполняет Tauri build без bundling.
+`check:ci` requires PostgreSQL and does not allow silently skipped integration tests.
+`check:native` requires a local Rust/Tauri toolchain. CI installs the Linux system
+dependencies and also runs a Tauri build without bundling.
 
 ## Frontend/runtime verification
 
 The three frontend outputs are independent and share one React application.
-Run pnpm test:frontend-artifacts followed by pnpm check:frontend-artifacts to check
+Run `pnpm test:frontend-artifacts` followed by `pnpm check:frontend-artifacts` to check
 concurrent builds, roots, packaging paths, manifest/icons and native PWA exclusion.
-pnpm --filter @app/web test:pwa checks production registration, offline SPA shell
+`pnpm --filter @app/web test:pwa` checks production registration, offline SPA shell
 navigation and absence of API runtime caching. It intentionally has no mandatory
 two-build update test.
 
@@ -58,11 +59,11 @@ macOS/Xcode; a Linux sync is not an iOS build. The origin table is configuration
 and framework-source-verified with exact CORS preflight tests, not device E2E.
 Store packaging, signing, notarization and device UI smoke remain product-owned.
 
-## Что выбирает продукт
+## Product choices
 
-- identity/session provider и permission vocabulary;
-- `global` или `tenant` data scope;
-- product schema и business modules;
-- design system и UI;
-- object storage, search, realtime и external integrations;
-- deployment platform, secrets and telemetry exporter.
+- Identity/session provider and permission vocabulary.
+- `global` or `tenant` data scope.
+- Product schema and business modules.
+- Design system and UI.
+- Object storage, search, realtime and external integrations.
+- Deployment platform, secrets and telemetry exporter.

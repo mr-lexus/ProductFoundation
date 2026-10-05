@@ -1,5 +1,7 @@
 ## Problem and scope
 
+[Русская версия](./pull_request_template-RU.md)
+
 <!-- What problem does this solve? Which application/package owns the change? -->
 
 ## Design and failure modes

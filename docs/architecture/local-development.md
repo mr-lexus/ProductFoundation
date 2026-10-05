@@ -1,12 +1,14 @@
 # Local development
 
-## Требования
+[Русская версия](./local-development-RU.md)
+
+## Requirements
 
 - Node.js 24
-- pnpm 11.7.0 через Corepack
-- Docker с Compose plugin
+- pnpm 11.7.0 through Corepack
+- Docker with the Compose plugin
 
-## Быстрый запуск
+## Quick start
 
 ```bash
 pnpm install
@@ -21,13 +23,14 @@ Compose creates a privileged local migration owner and a separate least-privileg
 recreate the disposable local volume with `docker compose down --volumes` before
 starting it again.
 
-- web: `http://localhost:1420`
+This deletes the local volume's data.
+
+- Web: `http://localhost:1420`
 - API liveness: `http://localhost:3001/health/live`
 - API readiness: `http://localhost:3001/health/ready`
-- metrics: `http://localhost:3001/metrics`
+- Metrics: `http://localhost:3001/metrics`
 
-`pnpm dev:demo` запускает API и web. Worker при необходимости запускается
-отдельно:
+`pnpm dev:demo` starts API and Web. Start the worker separately when needed:
 
 ```bash
 pnpm --filter @app/api worker:dev
@@ -53,10 +56,10 @@ Worker health and metrics are exposed on port `9464`.
 
 ## Frontend runtime commands
 
-Initialize product identity before cap:add:android or cap:add:ios. Generated native
+Initialize product identity before `cap:add:android` or `cap:add:ios`. Generated native
 projects are ignored by Git and are not renamed by cap sync. The rename command
 refuses writes when those projects exist, rather than leaving stale bundle IDs.
-An optional --short-name sets only the Web manifest short name; it defaults to --name.
+An optional `--short-name` sets only the Web manifest short name; it defaults to `--name`.
 
 | Command | Meaning |
 | --- | --- |
@@ -75,12 +78,12 @@ An optional --short-name sets only the Web manifest short name; it defaults to -
 
 Web stays on port 1420. Preview ports are 4173/4174/4175 respectively. Strict ports
 prevent a native development page from accidentally sharing a Web worker origin.
-Desktop check remains Cargo; mobile check remains Capacitor configuration checking.
-Both add check:frontend. Desktop dev/build remain native Tauri operations.
+Desktop `check` remains Cargo; Mobile `check` remains Capacitor configuration checking.
+Both add `check:frontend`. Desktop `dev`/`build` remain native Tauri operations.
 
-Install the test browser with pnpm --filter @app/web exec playwright install chromium
-(add --with-deps on Linux CI). If the download is unavailable and Chrome is already
-installed, PLAYWRIGHT_CHANNEL=chrome selects it using an isolated temporary profile.
+Install the test browser with `pnpm --filter @app/web exec playwright install chromium`
+(add `--with-deps` on Linux CI). If the download is unavailable and Chrome is already
+installed, `PLAYWRIGHT_CHANNEL=chrome` selects it using an isolated temporary profile.
 Browser smoke does not use a user's profile or require a backend/database.
 
 PowerShell environment syntax differs from the Bash examples:
@@ -91,7 +94,7 @@ pnpm build:frontends
 pnpm check:frontend-artifacts
 ```
 
-## Полный контейнерный путь
+## Full container setup
 
 ```bash
 docker compose up --build
@@ -99,13 +102,13 @@ docker compose ps
 docker compose down --volumes
 ```
 
-Если порт `3001` занят:
+If port `3001` is occupied:
 
 ```bash
 API_PORT=33001 docker compose up --build
 ```
 
-## Проверка
+## Verification
 
 ```bash
 pnpm check
@@ -117,5 +120,4 @@ If Node/pnpm runs on Windows while Docker is exposed only inside WSL, use
 `COMPOSE_DOCKER_VIA_WSL=true pnpm smoke:compose`. Linux and CI use `docker` directly;
 ordinary Docker Desktop for Windows uses `docker.exe` automatically.
 
-PostgreSQL integration test использует `TEST_DATABASE_URL`. В CI PostgreSQL 17
-поднимается автоматически.
+PostgreSQL integration tests use `TEST_DATABASE_URL`. CI starts PostgreSQL 17 automatically.

@@ -1,5 +1,7 @@
 # ADR 0007 — Reusable multi-project foundation
 
+[Русская версия](./0007-reusable-multi-project-foundation-RU.md)
+
 - Status: accepted
 - Date: 2026-07-12
 

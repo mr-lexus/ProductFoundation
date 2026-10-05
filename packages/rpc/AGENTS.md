@@ -1,5 +1,7 @@
 # AI Development Rules — RPC Protocol
 
+[Русская версия](./AGENTS-RU.md)
+
 `@product-foundation/rpc` owns only versioned protocol types, envelopes, public
 error codes and contract definition helpers. It must not contain product
 procedures, HTTP framework code, fetch logic or server execution behavior.

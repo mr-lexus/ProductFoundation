@@ -1,5 +1,7 @@
 # Contributing
 
+[Русская версия](./CONTRIBUTING-RU.md)
+
 Thank you for improving Product Foundation.
 
 ## Before changing code
@@ -28,6 +30,16 @@ or unrelated formatting changes.
 
 Security reports follow [SECURITY.md](./SECURITY.md), not the public issue tracker.
 
-Use the pull-request template. Mark every check truthfully, include commands and outcomes, and call
+Use the [pull-request template](./.github/pull_request_template.md). Mark every check truthfully, include commands and outcomes, and call
 out any verification that could not run. A skipped database integration suite is not evidence that
 database behavior passed.
+
+## Bilingual documentation
+
+Every Markdown page has an English file and a Russian companion with the `-RU.md` suffix.
+Update both together. The first link after the heading switches to the same page in the other
+language; all other local documentation links stay in the current language. Source-code links
+and external documentation are shared.
+
+`pnpm check:docs` checks page pairs, language switches, local targets and link language.
+Reviewers still need to check translation accuracy and natural phrasing.

@@ -1,5 +1,7 @@
 # ADR 0008 — Atomic idempotency with transaction advisory locks
 
+[Русская версия](./0008-atomic-idempotency-advisory-lock-RU.md)
+
 - Status: accepted
 - Date: 2026-07-16
 

@@ -1,57 +1,59 @@
 # Foundation implementation roadmap
 
-Этот roadmap относится только к технической основе. Product roadmap, UI и
-design system создаются после копирования репозитория.
+[Русская версия](./implementation-roadmap-RU.md)
 
-## Выполнено
+This roadmap covers only the technical foundation. The product roadmap, UI and
+design system are created after copying the repository.
 
-### Boundaries и toolchain
+## Completed
 
-- modular monolith и thin platform shells;
-- нейтральные `@product-foundation/*` и заменяемые `@app/*`;
-- NestJS/Fastify только на composition/transport edge;
-- FSD frontend direction;
-- architecture gate для source imports, package manifests и dependency cycles;
-- Node.js 24, pnpm lockfile, Biome formatter/linter.
+### Boundaries and toolchain
 
-### Contracts и platforms
+- Modular monolith and thin platform shells.
+- Neutral `@product-foundation/*` and replaceable `@app/*`.
+- NestJS/Fastify only at the composition/transport edge.
+- FSD frontend dependency direction.
+- Architecture checks for source imports, package manifests and dependency cycles.
+- Node.js 24, pnpm lockfile and Biome formatting/linting.
 
-- versioned contract-first RPC и Zod runtime validation;
-- единый request ID, typed errors и cancellation;
-- durable invoker обязателен для каждой RPC mutation и валидирует output до commit;
-- independent Web/mobile/desktop entrypoints and shell-local dist outputs;
-- Web-only generateSW PWA with prompt updates and no API runtime cache;
-- same-origin web API, обязательный native API URL и Tauri CSP.
+### Contracts and platforms
 
-### Data и reliability
+- Versioned contract-first RPC and Zod runtime validation.
+- Common request ID, typed errors and cancellation.
+- A durable invoker for every RPC mutation, with output validation before commit.
+- Independent Web/Mobile/Desktop entrypoints and shell-local dist outputs.
+- Web-only generateSW PWA with prompt updates and no API runtime cache.
+- Same-origin Web API, mandatory native API URL and Tauri CSP.
 
-- PostgreSQL pool, transactions и readiness;
-- foundation + готовый product migration namespace/directory;
-- `global | tenant` operation scope без фиктивных tenants;
-- atomic idempotency transaction для state, outbox и validated response;
-- transactional outbox, concurrent claim delivery, per-claim fencing tokens,
-  retry/dead-letter и retention;
-- worker health, Prometheus metrics и graceful shutdown.
+### Data and reliability
+
+- PostgreSQL pool, transactions and readiness.
+- Foundation migrations and a ready product migration namespace/directory.
+- `global | tenant` operation scope without artificial tenants.
+- Atomic idempotency transactions for state, outbox and validated response.
+- Transactional outbox, concurrent claim delivery, per-claim fencing tokens,
+  retry/dead-letter handling and retention.
+- Worker health, Prometheus metrics and graceful shutdown.
 
 ### Delivery
 
-- redacted structured diagnostics, Helmet, CORS, body/rate limits;
-- package, API and PostgreSQL integration tests;
-- production web/API build and compiled smoke;
-- modern pnpm deploy, Docker Compose full-stack smoke and GitHub Actions;
-- отдельная CI-проверка Capacitor/Tauri shell.
+- Redacted structured diagnostics, Helmet, CORS, body/rate limits.
+- Package, API and PostgreSQL integration tests.
+- Production Web/API build and compiled smoke tests.
+- Modern pnpm deploy, Docker Compose full-stack smoke and GitHub Actions.
+- A separate CI check for Capacitor/Tauri shells.
 
-## Следующий этап — конкретный продукт
+## Next stage: a concrete product
 
-1. Выполнить и проверить `pnpm product:rename -- ... --write`.
-2. Выбрать `DATA_SCOPE_MODE`, identity/session model и permissions.
-3. Создать первый product contract и backend capability.
-4. Добавить первую миграцию в готовый `apps/api/migrations`.
-5. Создать design system и первый frontend vertical slice.
-6. Добавить product-specific authorization/isolation tests.
-7. Настроить secrets, ingress, backups и telemetry exporter.
+1. Run and verify `pnpm product:rename -- ... --write`.
+2. Choose `DATA_SCOPE_MODE`, identity/session model and permissions.
+3. Create the first product contract and backend capability.
+4. Add the first migration to `apps/api/migrations`.
+5. Create a design system and the first frontend vertical slice.
+6. Add product-specific authorization/isolation tests.
+7. Configure secrets, ingress, backups and a telemetry exporter.
 
-## Не добавлять заранее
+## Do not add in advance
 
-Microservices, Redis, external queue/search, CRDT и distributed tracing backend
-добавляются только по измеренной необходимости и через ADR.
+Microservices, Redis, external queues/search, CRDTs and a distributed tracing
+backend require demonstrated need and an ADR.

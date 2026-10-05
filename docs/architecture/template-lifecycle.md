@@ -1,5 +1,7 @@
 # Template lifecycle and upgrades
 
+[Русская версия](./template-lifecycle-RU.md)
+
 Product Foundation is released as a template snapshot. Copying it creates an independent product
 repository; it does not establish a package update channel.
 
@@ -21,3 +23,8 @@ repository; it does not establish a package update channel.
 There is intentionally no automatic merge command. Product migrations, contracts and deployment
 configuration make unattended template upgrades unsafe. A future registry-package model requires a
 separate ADR and compatibility policy.
+
+A possible future read-only `foundation doctor` could compare `FOUNDATION_VERSION` with published
+release metadata and list relevant security, data-integrity, and reliability changes. It would not
+merge code or update migrations automatically and requires a separate task with a stable release
+metadata source.

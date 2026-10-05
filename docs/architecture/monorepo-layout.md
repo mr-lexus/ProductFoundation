@@ -1,5 +1,7 @@
 # Monorepo layout
 
+[Русская версия](./monorepo-layout-RU.md)
+
 ```text
 apps/
   api/                    NestJS composition, product backend modules, worker

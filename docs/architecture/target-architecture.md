@@ -1,10 +1,12 @@
 # Target architecture
 
-## Общая модель
+[Русская версия](./target-architecture-RU.md)
 
-База начинается как модульный монолит: один API, одна PostgreSQL и отдельно
-запускаемый worker. Это минимальное число deploy units при чётких внутренних
-границах.
+## Overall model
+
+The foundation starts as a modular monolith: one API, one PostgreSQL database and
+a separately launched worker. This keeps the number of deployment units small
+while preserving clear internal boundaries.
 
 ```mermaid
 flowchart LR
@@ -21,8 +23,8 @@ flowchart LR
 
 ## Frontend
 
-Продукт пишется один раз в `packages/frontend-app`. Web, mobile и desktop shells
-только запускают его и предоставляют platform adapters.
+The product is implemented once in `packages/frontend-app`. Web, mobile and
+desktop shells launch it and supply platform adapters.
 
 Each shell has an independent Vite entrypoint and local dist. Bootstrap passes
 immutable configuration and fetch into createFrontendApp; a concrete API provider
@@ -32,67 +34,79 @@ caching. Product data has no offline semantics in the foundation.
 See [ADR 0011](../adr/0011-frontend-runtime-composition.md) and
 [ADR 0012](../adr/0012-web-only-pwa.md).
 
-Frontend использует облегчённый Feature-Sliced Design:
+The frontend uses a lightweight Feature-Sliced Design structure:
 
 ```text
 app → pages → widgets → features → entities → shared
 ```
 
-Server state хранится в TanStack Query. Если продукту действительно нужен общий client state,
-он может отдельно добавить Zustand; foundation не устанавливает неиспользуемый store. Прямой
-transport code разрешён только в `shared/api`.
+Layers define ownership and dependency direction and help readers find code.
+They are not a classification exercise for every component. Do not create a
+feature, entity and widget for every small change. Prefer the simplest structure
+with clear ownership and downward dependencies; `features/open-modal`,
+`features/change-input` and `entities/button` add no useful boundary.
+
+TanStack Query owns server state. A product may add Zustand when shared client
+state actually requires it; the foundation does not install an unused store.
+Direct transport code is allowed only in `shared/api`.
+
+The shared frontend does not import Capacitor, Tauri, PWA implementation or build
+environment values. Add a platform capability when a consumer needs it: define
+a narrow interface in shared product code and concrete adapters in runtime shells.
+Do not create a generic service locator in advance. Keep platform conditionals
+and direct native API calls out of features.
 
 ## Backend
 
-NestJS отвечает за DI, lifecycle, modules, controllers и filters. Fastify — HTTP
-adapter. Бизнес-код остаётся plain TypeScript.
+NestJS owns dependency injection, lifecycle, modules, controllers and filters.
+Fastify is the HTTP adapter. Business code remains plain TypeScript.
 
-Внутри capability:
+Within a capability:
 
 ```text
 transport/infrastructure → application → domain
 ```
 
-- `transport` знает NestJS/RPC;
-- `infrastructure` реализует product repository и integration ports;
-- `application` координирует permissions, repositories и transaction;
-- `domain` содержит чистые правила и invariants.
+- `transport` knows NestJS and RPC;
+- `infrastructure` implements product repositories and integration ports;
+- `application` coordinates permissions, repositories and transactions;
+- `domain` contains pure rules and invariants.
 
-Выделять отдельный service можно только при измеренной причине: независимый
-scale, security boundary, отдельный owner или другой lifecycle.
+Extract a separate service only for a demonstrated reason: independent scaling,
+a security boundary, a separate owner or a different lifecycle.
 
 ## RPC
 
-`packages/contracts` хранит product procedures и Zod schemas. Protocol envelope
-находится в `@product-foundation/rpc`. NestJS DTO и server implementation types
-не являются публичным контрактом.
+`packages/contracts` contains product procedures and Zod schemas. The protocol
+envelope belongs to `@product-foundation/rpc`. NestJS DTOs and server
+implementation types are not public contracts.
 
-Каждый request имеет version, request ID, runtime input/output validation и
-единый typed error envelope.
+Every request has a version, request ID, runtime input/output validation and
+a common typed error envelope.
 
 ## Data
 
-PostgreSQL — source of truth. `backend-postgres` владеет pool, transaction
-mechanics, migration runner, idempotency и outbox primitives.
+PostgreSQL is the source of truth. `backend-postgres` owns the pool, transaction
+mechanics, migration runner, idempotency and outbox primitives.
 
-Product tables и repositories принадлежат capability. `DATA_SCOPE_MODE` выбирает
-global transaction ports либо tenant-only runner с явным `TenantScope`. Изменение
-state и outbox event записываются одной транзакцией.
+Product tables and repositories belong to their capability. `DATA_SCOPE_MODE`
+selects global transaction ports or a tenant-only runner with explicit
+`TenantScope`. A state change and its outbox event share one transaction.
 
-Foundation migrations используют namespace `foundation`. Product migrations уже
-имеют каталог `apps/api/migrations`, используют другой стабильный namespace и
-никогда не редактируют применённый SQL.
+Foundation migrations use the `foundation` namespace. Product migrations have
+a dedicated directory, `apps/api/migrations`, and use another stable namespace.
+Applied SQL must never be edited.
 
-## Security и operations
+## Security and operations
 
 Boundary defaults:
 
 - deny-by-default authorization;
 - validated environment;
-- CORS allowlist, body/rate limits и security headers;
+- CORS allowlist, body/rate limits and security headers;
 - redacted structured logs;
-- liveness/readiness и low-cardinality metrics;
-- graceful shutdown API и worker.
+- liveness/readiness and low-cardinality metrics;
+- graceful API and worker shutdown.
 
-Identity provider, permissions, tracing exporter, queue/search providers и
-deployment platform выбираются конкретным продуктом через ADR.
+Each product selects its identity provider, permissions, tracing exporter,
+queue/search providers and deployment platform through ADRs.

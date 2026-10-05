@@ -1,106 +1,54 @@
-# Путеводитель разработчика
+# Руководство разработчика
 
 [English version](./DEVELOPER_GUIDE.md)
 
-## Что это
+Это практическое руководство по запуску и развитию продукта.
+[README](./README-RU.md) объясняет устройство системы, а
+[архитектурная документация](./docs/architecture/README-RU.md) — основания решений
+и подробные правила.
 
-Это нейтральная техническая основа продукта. Репозиторий содержит общий frontend, NestJS API,
-RPC, PostgreSQL, worker, проверки, Docker и CI. Предметной области, готовой авторизации и
-дизайн-системы здесь намеренно нет.
+## Первый час в репозитории
 
-## Что где лежит
+Для знакомства клонируйте репозиторий. Для продукта возьмите выпуск основы
+с тегом и сохраните его `FOUNDATION_VERSION`; не начинайте с произвольного
+коммита ветки.
 
-```text
-apps/
-  api/          NestJS composition, продуктовые backend-модули и worker
-  web/          Vite-сборка общего frontend
-  mobile/       Capacitor shell
-  desktop/      Tauri shell
+### 1. Запустите пример приложения
 
-packages/
-  contracts/          продуктовые Zod/RPC-контракты
-  frontend-app/       общий React frontend
-  rpc/                формат RPC-протокола
-  rpc-client/         RPC-клиент
-  rpc-server/         валидация и выполнение RPC
-  backend-core/       ports, operation scope, idempotency и outbox orchestration
-  backend-postgres/   PostgreSQL-адаптеры и foundation migrations
-  config/             общие настройки инструментов
+Нужны Node.js 24, pnpm 11.7.0 и Docker с Compose.
+
+```bash
+pnpm install --frozen-lockfile
+cp .env.example .env
+docker compose up --detach --wait database
+pnpm db:migrate:dev
+pnpm dev:demo
 ```
 
-`@product-foundation/*` — нейтральное техническое ядро, `@app/*` — заменяемый продуктовый слой.
+Откройте `http://localhost:1420`. Проверка готовности API находится по адресу
+`http://localhost:3001/health/ready`, метрики — `http://localhost:3001/metrics`.
+Фоновый процесс запускается отдельно:
 
-## Как начать новый продукт
-
-1. Переименуйте placeholder identifiers.
-2. Выберите `DATA_SCOPE_MODE=global` или `tenant`.
-3. Выберите identity/session model и permission vocabulary.
-4. Создайте контракт в `packages/contracts`.
-5. Создайте backend capability в `apps/api/src/modules/<name>`.
-6. Добавьте product migration в `apps/api/migrations`.
-7. Создайте frontend slice в `packages/frontend-app/src`.
-8. Выполните относящиеся к изменению acceptance checks.
-
-## Durable RPC mutations
-
-Каждая mutation требует `X-Idempotency-Key` и invoker из
-`apps/api/src/shared/application/create-idempotent-rpc-handler-invoker.ts`.
-
-Mutation handler получает `context.execution.transaction`. Все изменения PostgreSQL и outbox
-append обязаны использовать именно этот executor. Invoker валидирует публичный output,
-завершает idempotency record и фиксирует все эффекты одной транзакцией. Ошибка handler-а или
-output validation откатывает state, outbox и ledger вместе.
-
-Не открывайте вложенную транзакцию внутри mutation handler. Внешние side effects оформляйте
-как outbox event и обрабатывайте идемпотентным worker handler.
-
-Параллельные дубликаты отсекаются transaction-scoped PostgreSQL advisory try-lock. Долгие операции
-всё равно разбиваются на короткую транзакцию и outbox event: не держите DB transaction во время
-ожидания внешней системы.
-
-## Global и tenant продукты
-
-`DATA_SCOPE_MODE=global` экспортирует обычные SQL/transaction ports.
-
-`DATA_SCOPE_MODE=tenant` экспортирует product modules только `TenantTransactionRunner`, который
-устанавливает transaction-local `app.tenant_id`. Это ещё не полноценная изоляция: каждая
-tenant-owned таблица обязана включать и принудительно применять RLS, иметь явную policy,
-работать под non-superuser ролью и проходить негативные cross-tenant tests. См.
-[tenant isolation contract](./docs/architecture/tenant-isolation.md).
-
-## PostgreSQL и worker
-
-- Foundation migrations находятся в `packages/backend-postgres/migrations`.
-- Product migrations находятся в `apps/api/migrations`.
-- Применённые миграции неизменяемы и защищены checksum.
-- State и outbox event записываются одной транзакцией.
-- Все сообщения claim-а начинают обработку одновременно, чтобы lease не истекал в локальной очереди.
-- Outbox handlers остаются идемпотентными: доставка имеет семантику at least once.
-
-## Frontend и платформы
-
-```text
-app → pages → widgets → features → entities → shared
+```bash
+pnpm --filter @app/api worker:dev
 ```
 
-HTTP/RPC находится в `shared/api`, server state — в TanStack Query, локальное состояние — в
-React. Web production использует same-origin API; для Capacitor и Tauri обязателен
-`VITE_API_URL`. Production native build принимает только HTTPS; локальный HTTP для mobile требует
-явного `NATIVE_ALLOW_INSECURE_API=true` и команды `build:mobile:dev`.
+### 2. Изучите два примера
 
-## Что переименовать
+- [System-ping](./docs/architecture/system-ping-flow-RU.md) — минимальный путь
+  «контракт → клиент → API → React».
+- [Надёжная операция](./docs/architecture/reference-durable-flow-RU.md) связывает
+  мутацию с идемпотентностью PostgreSQL, состоянием продукта, outbox,
+  фоновой доставкой и запросом результата.
 
-Каждый shell имеет собственный entrypoint и dist. Весь продуктовый UI остаётся
-в frontend-app. Bootstrap передаёт конкретный API transport без generic runtime
-context. Только Web содержит PWA worker и предложение обновить страницу.
-См. [команды и browser smoke](./docs/architecture/local-development.md) и
-[таблицу native origins](./docs/architecture/environment-contract.md).
+Второй путь также проверяют
+[интеграционный HTTP-тест](./apps/api/src/app/http/reference-durable-probe.integration.test.ts)
+и [smoke-тест Compose](./scripts/smoke-compose.mjs).
 
-Инициализацию выполняйте до генерации native projects. Необязательный --short-name
-задаёт короткое имя Web manifest; остальные identity placeholders принадлежат
-соответствующим платформам.
+### 3. Просмотрите и примените переименование
 
-Сначала просмотрите dry-run, затем примените подтверждённое переименование:
+Сделайте это до генерации проектов Android и iOS. Сначала получите план
+переименования, проверьте каждый перечисленный файл, затем примените изменения:
 
 ```bash
 pnpm product:rename -- --name "Example Product" --slug example-product \
@@ -109,23 +57,190 @@ pnpm product:rename -- --name "Example Product" --slug example-product \
   --id com.example.product --namespace example --write
 ```
 
-- `product-foundation-starter` — имя репозитория/root package;
-- `Product Starter` — title приложений;
-- `com.example.product` — Capacitor/Tauri identifiers;
-- `app` — migration/schema namespace и metric prefix;
-- `@app/*` — только если нужен собственный namespace.
+Необязательный `--short-name` задаёт короткое имя манифеста Web.
+Внутреннее пространство имён `@product-foundation/*` можно оставить.
+Переименовывайте `@app/*`, только если команде нужно другое пространство
+имён пакетов продукта.
 
-## Проверки
+### 4. Выберите область данных
+
+Явно задайте `DATA_SCOPE_MODE=global` или `tenant`.
+
+- `global` предоставляет обычные интерфейсы SQL и транзакций.
+- `tenant` предоставляет продуктовым модулям только `TenantTransactionRunner`.
+
+Контекст арендатора сам по себе не обеспечивает изоляцию. Каждая его таблица
+должна включать и принудительно применять RLS, иметь политику на основе
+`app.tenant_id`, использовать рабочую роль без прав суперпользователя,
+проходить `assertTenantRelationsSecure` и тесты запрета доступа между
+арендаторами. Следуйте [требованиям к изоляции](./docs/architecture/tenant-isolation-RU.md).
+
+### 5. Добавьте первую функцию продукта
+
+1. Определите публичную процедуру и схемы Zod в `packages/contracts/src`.
+2. Добавьте серверный модуль в `apps/api/src/modules/<capability>`.
+3. Если данные сохраняются, добавьте SQL в `apps/api/migrations`.
+4. Зарегистрируйте модуль в точке сборки API.
+5. Добавьте типизированную обёртку API в `packages/frontend-app/src/shared/api`.
+6. Подключите запрос или мутацию в соответствующих entity или feature фронтенда.
+7. Добавьте соразмерные изменению проверки границ, прикладного кода и интеграции.
+8. Выполните подходящие команды проверки из списка ниже.
+
+Если место неочевидно, используйте памятку [«Куда добавлять код»](./docs/architecture/where-to-put-code-RU.md).
+
+## Карта репозитория
+
+```text
+apps/
+  api/          сборка NestJS-приложения, серверные модули продукта, фоновый процесс
+  web/          оболочка Web/PWA
+  mobile/       оболочка Capacitor
+  desktop/      оболочка Tauri
+
+packages/
+  contracts/          контракты продукта на Zod/RPC
+  frontend-app/       общее React-приложение
+  rpc/                базовые определения и форматы сообщений протокола
+  rpc-client/         типизированное выполнение, отмена, ошибки
+  rpc-server/         проверка данных и выполнение обработчиков
+  backend-core/       интерфейсы, области данных, координация идемпотентности и outbox
+  backend-postgres/   адаптеры PostgreSQL и миграции основы
+  config/             общие настройки инструментов
+```
+
+`@product-foundation/*` — переиспользуемый код без привязки к продукту.
+`@app/*` — заменяемый продуктовый слой. Пакеты основы никогда не импортируют
+пакеты продукта. Импорты между пакетами используют их публичные экспорты.
+
+## Добавление RPC-процедур
+
+Контракт — отправная точка для изучения любой публичной операции:
+
+```text
+packages/contracts
+  → обёртка фронтенда в shared/api
+  → соответствующая entity или feature
+  → transport модуля apps/api
+  → прикладной сценарий
+  → domain и infrastructure по необходимости
+```
+
+Для запроса на чтение:
+
+- определите схемы входа и выхода и `kind: "query"`;
+- добавьте тонкий транспортный обработчик и прикладной сценарий;
+- добавьте обёртку TanStack Query в соответствующий слайс фронтенда;
+- проверьте успех, валидацию входа и выхода, ожидаемые публичные ошибки.
+
+Для мутации:
+
+- определите `kind: "mutation"`;
+- требуйте `X-Idempotency-Key` и используйте исполнитель надёжной мутации;
+- записывайте состояние и outbox только через `context.execution.transaction`;
+- добавьте обёртку TanStack mutation в соответствующую feature;
+- проверьте повтор, конфликт данных, откат и при необходимости доставку внешнего действия.
+
+Не помещайте репозитории, бизнес-сервисы, DTO фреймворка и транспортное
+поведение в `packages/contracts`. Форматы сообщений, версии, отмена
+и ошибки описаны в [протоколе RPC](./docs/architecture/rpc-protocol-RU.md).
+
+## Структура серверного модуля
+
+```text
+apps/api/src/modules/<capability>/
+  contract/       локальный реэкспорт или ссылка на публичные контракты
+  domain/         чистые бизнес-правила
+  application/    сценарии, права, интерфейсы, координация транзакций
+  infrastructure/ адаптеры репозиториев и интеграций продукта
+  transport/      тонкие контроллеры NestJS и сборка модуля
+```
+
+Зависимости направлены внутрь: `transport/infrastructure → application → domain`.
+Domain и application не импортируют NestJS, Fastify или `pg`.
+Модулю не нужны все каталоги сразу — создавайте только слои, необходимые
+для его поведения.
+
+## Надёжные RPC-мутации
+
+Каждая мутация использует исполнитель из
+`apps/api/src/shared/application/create-idempotent-rpc-handler-invoker.ts`.
+Обработчик получает `context.execution.transaction`. Изменения состояния
+и запись outbox должны использовать именно этот исполнитель, чтобы проверенный
+выход, завершение идемпотентности, состояние и outbox фиксировались атомарно.
+
+Не открывайте вложенную транзакцию и не вызывайте внешнюю систему из транзакции.
+Запишите событие и выполните действие идемпотентным фоновым обработчиком.
+Конкурирующие дубликаты отсекаются неблокирующей рекомендательной блокировкой
+на время транзакции. Длительная работа начинается с короткой транзакции
+и события outbox.
+
+## Общий фронтенд и оболочки
+
+Интерфейс продукта живёт в `packages/frontend-app`. Каждая оболочка отвечает
+за точку входа, сборку приложения, конфигурацию и результаты сборки,
+жизненный цикл и API платформы. Только Web владеет service worker
+и интерфейсом обновления PWA. Импорты Capacitor остаются в `apps/mobile`,
+Tauri — в `apps/desktop`.
+
+```text
+app → pages → widgets → features → entities → shared
+```
+
+Это облегчённое направление Feature-Sliced определяет ответственность,
+а не обязательное число каталогов. Не создавайте `features/open-modal`,
+`features/change-input` или `entities/button` ради использования каждого слоя.
+Выбирайте простое место с понятным владельцем и зависимостями вниз.
+Между слайсами импортируйте только публичный `index.ts`.
+
+- Серверное состояние: TanStack Query.
+- Локальное состояние компонента: React.
+- Общее клиентское хранилище: только когда нужно нескольким компонентам
+  или длительному сценарию.
+- HTTP/RPC-транспорт: `shared/api`.
+- Сценарии продукта: `features`.
+- Смысл предметной области: `entities`.
+
+Если функции нужны системная отправка контента, файловая система, уведомления
+или другое отличие платформы, определите интерфейс для этого потребителя
+и передайте адаптеры оболочек. Не добавляйте общий локатор сервисов
+и не разносите проверки платформы по общему коду.
+
+Команды и ограничения безопасности описаны в
+[локальной разработке](./docs/architecture/local-development-RU.md)
+и [переменных окружения](./docs/architecture/environment-contract-RU.md).
+
+## PostgreSQL и фоновый процесс
+
+- Миграции основы: `packages/backend-postgres/migrations`.
+- Миграции продукта: `apps/api/migrations`.
+- Применённые миграции неизменяемы и проверяются по контрольной сумме.
+- Outbox доставляет сообщения как минимум один раз; обработчики остаются идемпотентными.
+- Готовность фонового процесса: `:9464/health/ready`; метрики: `:9464/metrics`.
+- Команды просмотра и подтверждённого повтора описаны в
+  [инструкции по эксплуатации](./docs/architecture/operations-runbook-RU.md).
+
+## Карта проверок
 
 ```bash
-pnpm check
-TEST_DATABASE_URL=postgresql://... pnpm check:ci
+pnpm check:docs         # ссылки Markdown и согласованность языковых версий
+pnpm check:architecture # ответственность и границы зависимостей
+pnpm test:tooling       # регрессии архитектуры, переименования и инструментов запуска
+pnpm check             # все воспроизводимые локальные проверки и модульные тесты
+TEST_DATABASE_URL=postgresql://... pnpm check:ci # также интеграционные тесты PostgreSQL
 pnpm build
 pnpm smoke:api
 pnpm smoke:compose
 pnpm check:native
 ```
 
-PostgreSQL integration tests требуют `TEST_DATABASE_URL` и запускаются в CI. Скопированный
-продукт не готов к трафику, пока не выполнены продуктовые требования из `README.md` и
-`SECURITY.md`.
+При работе запускайте минимальный подходящий набор, затем все обязательные
+для изменения проверки. Изменения базы и надёжного выполнения требуют
+интеграционных тестов с настоящим PostgreSQL. Изменения нативной конфигурации —
+`pnpm check:native`.
+
+## После копирования
+
+Сохраните `FOUNDATION_VERSION`. Выпуски основы — снимки, без автоматического
+канала обновлений. Просматривайте последующие выпуски и переносите исправления
+безопасности, целостности данных и надёжности обычным PR продукта.
+См. [жизненный цикл шаблона](./docs/architecture/template-lifecycle-RU.md).

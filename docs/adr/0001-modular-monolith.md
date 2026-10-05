@@ -1,41 +1,40 @@
 # ADR 0001: Modular monolith first
 
+[Русская версия](./0001-modular-monolith-RU.md)
+
 - Status: Accepted
 - Date: 2026-07-11
 
 ## Context
 
-Starter должен подходить для разных продуктов и большого числа пользователей.
-Команда может состоять в том числе из AI-агентов. Ранние микросервисы увеличат
-число deploy units, distributed
-transactions, contracts и наблюдаемость раньше, чем появятся измеренные
-границы нагрузки.
+The starter must support unrelated products and large user bases. Teams may include
+AI agents. Introducing microservices early increases deployment units, distributed
+transactions, contracts and observability work before load boundaries are measured.
 
 ## Decision
 
-Backend разворачивается как модульный монолит. Бизнес-код организован по
-capabilities, модули общаются через явные application APIs, а не через таблицы
-друг друга. Один process может иметь отдельный worker entrypoint, но использует
-те же модули и contracts.
+Deploy the backend as a modular monolith. Organize business code by capability.
+Modules communicate through explicit application APIs rather than each other's
+tables. A separate worker entrypoint may use the same modules and contracts.
 
-PostgreSQL становится source of truth после ADR по persistence. Асинхронные
-эффекты публикуются через transactional outbox. Search, notifications и
-realtime являются projections/consumers, а не владельцами canonical data.
+PostgreSQL becomes the source of truth after the persistence ADR. Publish
+asynchronous effects through a transactional outbox. Search, notifications and
+realtime are projections/consumers, not owners of canonical data.
 
 ## Consequences
 
-Плюсы:
+Benefits:
 
-- атомарные транзакции для product workflows;
-- простой local development и deployment;
-- границы остаются видимыми и тестируемыми;
-- модуль можно выделить позже по измеренной причине.
+- atomic transactions for product workflows;
+- simple local development and deployment;
+- visible, testable boundaries;
+- the option to extract a module later for a measured reason.
 
-Минусы:
+Costs:
 
-- требуется дисциплина импортов и ownership;
-- тяжёлые workloads должны иметь отдельные queues/read models;
-- одна база требует tenant-aware indexes и migration discipline.
+- imports and ownership require discipline;
+- heavy workloads need separate queues/read models;
+- one database needs tenant-aware indexes and disciplined migrations.
 
-Выделение сервиса разрешено только при наличии владельца, независимого scale или
-security boundary, измеренной проблемы и плана data ownership.
+Extract a service only with an owner, an independent scaling or security boundary,
+a measured problem and a data ownership plan.

@@ -1,49 +1,51 @@
 # ADR 0002: Framework-neutral contract-first RPC boundary
 
+[Русская версия](./0002-contract-first-rpc-RU.md)
+
 - Status: Accepted
 - Date: 2026-07-11
 
 ## Context
 
-Shared frontend package не может зависеть от `apps/api`: packages не должны
-импортировать concrete app shells. Поэтому Nest controllers, provider types и
-server router types не могут быть источником frontend contracts.
+The shared frontend cannot depend on `apps/api`: packages must not import concrete
+app shells. Nest controllers, provider types and server router types therefore
+cannot supply frontend contracts.
 
-Public RPC boundary также должна иметь runtime validation, единый error/version
-envelope и сохраняться при замене HTTP framework.
+The public RPC boundary also needs runtime validation, a common error/version
+envelope and independence from the HTTP framework.
 
 ## Decision
 
-Использовать:
+Use:
 
-- Zod contracts в `packages/contracts`;
-- framework-neutral protocol в `@product-foundation/rpc`;
-- framework-neutral RPC executor в `@product-foundation/rpc-server`;
-- thin Nest controllers, которые адаптируют HTTP request/reply;
-- `/rpc/v1` и общий typed envelope;
-- DTO без NestJS/Fastify/HTTP metadata;
-- единый frontend client с runtime output validation.
+- Zod contracts in `packages/contracts`;
+- a framework-neutral protocol in `@product-foundation/rpc`;
+- a framework-neutral executor in `@product-foundation/rpc-server`;
+- thin Nest controllers adapting HTTP request/reply;
+- `/rpc/v1` and a common typed envelope;
+- DTOs without NestJS/Fastify/HTTP metadata;
+- one frontend client with runtime output validation.
 
-Не использовать Nest controller DTO classes, `RpcException`, provider types
-или generated server module types как shared contracts. Выбор application
-framework и HTTP adapter зафиксирован отдельно в ADR 0004.
+Do not use Nest controller DTO classes, `RpcException`, provider types or
+generated server module types as shared contracts. ADR 0004 separately records
+the application framework and HTTP adapter decision.
 
 ## Consequences
 
-Плюсы:
+Benefits:
 
-- frontend/backend зависят от одной нейтральной границы;
-- runtime validation существует с обеих сторон;
-- NestJS/Fastify можно заменить без переписывания use cases и clients;
-- errors, request IDs и versioning единообразны.
+- frontend and backend depend on one neutral boundary;
+- runtime validation exists on both sides;
+- NestJS/Fastify can be replaced without rewriting use cases and clients;
+- errors, request IDs and versioning are consistent.
 
-Минусы:
+Costs:
 
-- небольшой executor поддерживается как отдельный foundation package;
-- route registration остаётся явной через controllers;
-- Nest pipes не заменяют public contract validation;
-- batching/subscriptions не появляются автоматически.
+- the small executor is maintained as a separate foundation package;
+- route registration remains explicit through controllers;
+- Nest pipes do not replace public contract validation;
+- batching/subscriptions are not automatic.
 
-Executor и controllers обязаны оставаться маленькими и покрытыми boundary tests.
-Auth policy, transactions и business orchestration принадлежат application
-use cases, а не Nest transport helpers.
+Keep the executor and controllers small and covered by boundary tests.
+Authorization policy, transactions and business orchestration belong to
+application use cases, not Nest transport helpers.

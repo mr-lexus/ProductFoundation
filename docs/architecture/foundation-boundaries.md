@@ -1,34 +1,36 @@
 # Foundation boundaries
 
-Репозиторий состоит из двух уровней ownership.
+[Русская версия](./foundation-boundaries-RU.md)
+
+The repository has two levels of ownership.
 
 ## `@product-foundation/*`
 
-Техническое ядро без продуктовой предметной области:
+The technical core contains no product domain:
 
-| Package | Ответственность |
+| Package | Responsibility |
 | --- | --- |
-| `rpc` | protocol, envelopes, errors, procedure definition |
-| `rpc-client` | fetch, cancellation, output validation |
-| `rpc-server` | input/output validation и handler execution |
-| `backend-core` | auth/scope ports, idempotency and outbox orchestration |
-| `backend-postgres` | `pg` adapters и foundation migrations |
-| `config` | общие tooling presets |
+| `rpc` | Protocol, envelopes, errors, procedure definition |
+| `rpc-client` | Fetch, cancellation, output validation |
+| `rpc-server` | Input/output validation and handler execution |
+| `backend-core` | Authorization/scope ports, idempotency and outbox orchestration |
+| `backend-postgres` | `pg` adapters and foundation migrations |
+| `config` | Shared tooling presets |
 
-Foundation не импортирует `@app/*`, React, NestJS composition или продуктовые
-контракты. `backend-postgres` — единственное место с прямым импортом `pg`.
+Foundation packages do not import `@app/*`, React, NestJS composition or product
+contracts. `backend-postgres` is the only place that imports `pg` directly.
 
 ## `@app/*`
 
-Заменяемый слой будущего продукта:
+The replaceable product layer owns:
 
-- публичные product contracts;
-- backend capabilities и NestJS composition;
-- общий frontend и platform shells;
-- product migrations и permission vocabulary;
-- deployment configuration и observability labels.
+- public product contracts;
+- backend capabilities and NestJS composition;
+- the shared frontend and platform shells;
+- product migrations and permission vocabulary;
+- deployment configuration and observability labels.
 
-Зависимости направлены только `@app/* → @product-foundation/*`.
+Dependencies point only from `@app/*` to `@product-foundation/*`.
 
-Пакеты остаются private workspace packages. Болванка копируется целиком, поэтому
-registry, публикация и semver внутренних packages не нужны.
+Packages remain private workspace packages. The starter is copied as a whole,
+so a registry, publishing and independent package versioning are unnecessary.

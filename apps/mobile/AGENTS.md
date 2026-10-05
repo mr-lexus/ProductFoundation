@@ -1,5 +1,7 @@
 # Capacitor runtime
 
+[Русская версия](./AGENTS-RU.md)
+
 This shell owns its Vite entrypoint, Capacitor configuration and native adapters.
 Product UI comes from `@app/frontend-app`. Never import another application shell.
 Output is `apps/mobile/dist`; Capacitor packages only this directory.

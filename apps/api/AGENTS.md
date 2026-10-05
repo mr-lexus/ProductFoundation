@@ -1,5 +1,7 @@
 # AI Development Rules — Application Backend
 
+[Русская версия](./AGENTS-RU.md)
+
 ## Purpose
 
 This file defines backend architecture rules for:

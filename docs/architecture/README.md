@@ -1,28 +1,32 @@
 # Architecture documentation
 
-Начните с корневого [`DEVELOPER_GUIDE.md`](../../DEVELOPER_GUIDE.md) или
-[`DEVELOPER_GUIDE-RU.md`](../../DEVELOPER_GUIDE-RU.md).
+[Русская версия](./README-RU.md)
 
-- [`target-architecture.md`](./target-architecture.md) — runtimes, dependency flow и data boundaries;
-- [`monorepo-layout.md`](./monorepo-layout.md) — владелец каждого каталога;
-- [`where-to-put-code.md`](./where-to-put-code.md) — куда положить новый файл;
-- [`foundation-boundaries.md`](./foundation-boundaries.md) — отличие `@app/*` от ядра;
-- [`rpc-protocol.md`](./rpc-protocol.md) — публичная frontend/backend граница;
-- [`system-ping-flow.md`](./system-ping-flow.md) — минимальный vertical slice;
-- [`local-development.md`](./local-development.md) — запуск и диагностика;
-- [`environment-contract.md`](./environment-contract.md) — runtime settings;
-- [`tenant-isolation.md`](./tenant-isolation.md) — mandatory RLS and runtime-role contract;
-- [`reference-durable-flow.md`](./reference-durable-flow.md) — executable mutation/outbox proof;
-- [`threat-model.md`](./threat-model.md) — assets, trust boundaries and residual responsibilities;
-- [`operations-runbook.md`](./operations-runbook.md) — deploy, rollback и incidents;
-- [`architecture-change-checklist.md`](./architecture-change-checklist.md) — проверка изменений;
-- [`naming-conventions.md`](./naming-conventions.md) — короткие правила именования;
-- [`foundation-readiness.md`](./foundation-readiness.md) — что уже проверено;
-- [`implementation-roadmap.md`](./implementation-roadmap.md) — выполненный foundation и следующий product stage.
-- [`template-lifecycle.md`](./template-lifecycle.md) — snapshot releases and copied-product upgrades.
+Start with the [Developer guide](../../DEVELOPER_GUIDE.md).
 
-Долгоживущие решения находятся в [`docs/adr`](../adr). При конфликте документа
-с `AGENTS.md` действует ближайший `AGENTS.md`.
+- [Target architecture](./target-architecture.md)
+- [Monorepo layout](./monorepo-layout.md)
+- [Where to put code](./where-to-put-code.md)
+- [Foundation and product boundaries](./foundation-boundaries.md)
+- [Executable architecture checks](./executable-architecture.md)
+- [RPC protocol](./rpc-protocol.md)
+- [System ping flow](./system-ping-flow.md)
+- [Local development](./local-development.md)
+- [Environment variables and runtime origins](./environment-contract.md)
+- [Tenant isolation](./tenant-isolation.md)
+- [Reference durable flow](./reference-durable-flow.md)
+- [Threat model](./threat-model.md)
+- [Operations runbook](./operations-runbook.md)
+- [Architecture change checklist](./architecture-change-checklist.md)
+- [Naming conventions](./naming-conventions.md)
+- [Readiness and verification limits](./foundation-readiness.md)
+- [Implementation roadmap](./implementation-roadmap.md)
+- [Template lifecycle and upgrades](./template-lifecycle.md)
+- [Product feedback loop](./product-feedback-loop.md)
 
-Frontend runtime decisions: [independent composition](../adr/0011-frontend-runtime-composition.md)
+Lasting decisions and their rationale are in the [ADR index](../adr/README.md).
+If documentation conflicts with development rules, the nearest `AGENTS.md` applies.
+All rule files are linked from the [documentation index](../README.md).
+
+Frontend decisions: [independent shells](../adr/0011-frontend-runtime-composition.md)
 and [Web-only PWA](../adr/0012-web-only-pwa.md).

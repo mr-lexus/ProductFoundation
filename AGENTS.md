@@ -1,5 +1,7 @@
 # AI Development Rules — Product Foundation Monorepo
 
+[Русская версия](./AGENTS-RU.md)
+
 ## Purpose
 
 This file defines repository-wide rules for a reusable, product-neutral starter.

@@ -1,5 +1,7 @@
 # Foundation threat model
 
+[Русская версия](./threat-model-RU.md)
+
 ## Protected assets
 
 - product and tenant-owned PostgreSQL rows;

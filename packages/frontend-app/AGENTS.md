@@ -1,5 +1,7 @@
 # AI Development Rules — Shared Frontend Application
 
+[Русская версия](./AGENTS-RU.md)
+
 ## Purpose
 
 This file defines architecture rules for the shared frontend application.
@@ -234,16 +236,19 @@ entities/task/
 Allowed:
 
 ```ts
-import { TaskCard } from '@/entities/task'
+import { TaskCard } from '../../../entities/task'
 ```
 
 Forbidden:
 
 ```ts
-import { TaskCard } from '@/entities/task/ui/task-card'
+import { TaskCard } from '../../../entities/task/ui/task-card'
 ```
 
 Cross-slice imports must use public APIs only.
+The package intentionally has no TypeScript path aliases: architecture checks and compiler
+resolution must not drift. If an alias ever becomes necessary, its resolution and regression
+coverage must be added to the architecture tooling in the same change.
 
 ---
 

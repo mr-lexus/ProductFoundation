@@ -1,10 +1,12 @@
 # Versioned contract-first RPC
 
-## Решение
+[Русская версия](./rpc-protocol-RU.md)
 
-Публичная API-граница определяется в `packages/contracts`. NestJS отвечает за
-application composition, а Fastify — за HTTP runtime; ни один из них не является
-источником типов для frontend. Это сохраняет направление зависимостей:
+## Decision
+
+The public API boundary is defined in `packages/contracts`. NestJS owns application
+composition and Fastify owns the HTTP runtime; neither supplies frontend types.
+This preserves the dependency direction:
 
 ```txt
 packages/contracts
@@ -12,27 +14,26 @@ packages/contracts
 apps/api    packages/frontend-app
 ```
 
-Shared frontend никогда не импортирует `AppType` или другой тип реализации из
-`apps/api`.
+The shared frontend never imports `AppType` or another implementation type from `apps/api`.
 
 ## Procedure contract
 
-Каждая процедура имеет:
+Each procedure has:
 
-- стабильный ID вида `module.action`;
+- a stable `module.action` ID;
 - `kind: query | mutation`;
-- versioned path `/rpc/v1/...`;
-- Zod input schema;
-- Zod output schema, содержащую только публичный DTO.
+- a versioned `/rpc/v1/...` path;
+- a Zod input schema;
+- a Zod output schema containing only the public DTO.
 
-Schemas описывают JSON wire values. `Date`, `BigInt`, class instances, circular
-objects и transformations, меняющие значение при повторном parse, запрещены
-runtime-проверкой. Нормализующий transform допустим только когда он стабилен
-после JSON round trip.
+Schemas describe JSON wire values. Runtime checks reject `Date`, `BigInt`, class
+instances, circular objects and transformations that change values on repeated
+parsing. A normalizing transform is allowed only if it remains stable after a
+JSON round trip.
 
-HTTP method пока всегда `POST`. Это осознанно упрощает одинаковые клиенты web,
-Capacitor и Tauri. HTTP caching для тяжёлых read models добавляется отдельным
-решением, а не скрыто внутри RPC.
+The HTTP method is currently always `POST`. This deliberately keeps Web, Capacitor
+and Tauri clients consistent. HTTP caching for expensive read models requires a
+separate decision; it is not hidden inside RPC.
 
 ## Success envelope
 
@@ -49,8 +50,8 @@ Capacitor и Tauri. HTTP caching для тяжёлых read models добавл�
 }
 ```
 
-`data` валидируется output schema процедуры. `meta` принадлежит протоколу и
-не смешивается с entity/application DTO.
+The procedure's output schema validates `data`. Protocol-owned `meta` stays
+separate from entity/application DTOs.
 
 ## Error envelope
 
@@ -69,74 +70,74 @@ Capacitor и Tauri. HTTP caching для тяжёлых read models добавл�
 }
 ```
 
-Публичные codes: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`,
-`CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`,
-`RATE_LIMITED`, `INTERNAL_ERROR`.
+Public codes: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`,
+`CONFLICT`, `PAYLOAD_TOO_LARGE`, `UNSUPPORTED_MEDIA_TYPE`, `RATE_LIMITED`,
+`INTERNAL_ERROR`.
 
-Domain/application code не кодирует HTTP status. Ожидаемый отказ преобразуется
-в `RpcApplicationError` на application/transport boundary. Неизвестная ошибка
-логируется с request ID и превращается в безопасный `INTERNAL_ERROR`; stack,
-SQL и внутренние сообщения клиенту не возвращаются.
+Domain/application code does not encode HTTP status. Expected failures become
+`RpcApplicationError` at the application/transport boundary. Unknown errors are
+logged with the request ID and become safe `INTERNAL_ERROR` responses. Stack
+traces, SQL and internal messages never reach the client.
 
 ## Request context
 
-Handler получает:
+A handler receives:
 
 - `requestId`;
-- validated `idempotencyKey` либо `null`;
-- время приёма;
-- `AbortSignal`;
-- actor (`kind`, `subjectId`) либо `null` до auth middleware.
+- a validated `idempotencyKey` or `null`;
+- the arrival time;
+- an `AbortSignal`;
+- an actor (`kind`, `subjectId`), or `null` before authentication middleware.
 
-Mutation handler дополнительно получает явный
-`context.execution.transaction`; query handler получает обычный transport context
-без database capability.
+Mutation handlers also receive explicit `context.execution.transaction`.
+Query handlers receive ordinary transport context without database capability.
 
-После введения auth transport создаёт actor, а use case выполняет авторизацию.
-Repositories не читают HTTP headers, Nest execution context или Fastify request.
+Once authentication is added, transport constructs the actor and the use case
+performs authorization. Repositories do not read HTTP headers, Nest execution
+context or Fastify requests.
 
-## Cancellation и retry
+## Cancellation and retry
 
-TanStack Query передаёт `signal` в RPC client, затем в `fetch` и handler.
-Отмена не является server rollback: use case всё равно обязан использовать
-transaction boundary для атомарности.
+TanStack Query passes `signal` to the RPC client, then to `fetch` and the handler.
+Cancellation does not roll back server work: the use case still needs a transaction
+boundary for atomicity.
 
-Автоматический retry допустим только для queries и idempotent mutations. Каждая
-mutation требует `x-idempotency-key` и durable handler invoker. Handler получает
-executor через `context.execution.transaction`. Product state, outbox messages,
-schema-validated response и idempotency completion фиксируются одной PostgreSQL
-transaction; ошибка откатывает их вместе. Повтор с тем же payload возвращает
-сохранённый результат.
+Automatic retry is allowed only for queries and idempotent mutations. Every
+mutation requires `x-idempotency-key` and a durable handler invoker. The handler
+receives its executor through `context.execution.transaction`. Product state,
+outbox messages, schema-validated response and idempotency completion commit in
+one PostgreSQL transaction; an error rolls them all back. Repeating the same
+payload returns the stored result.
 
-Внешние effects не выполняются внутри mutation transaction. Mutation записывает
-outbox event, а идемпотентный worker handler выполняет effect.
+External effects do not run inside the mutation transaction. The mutation appends
+an outbox event; an idempotent worker handler performs the effect.
 
-Синхронная mutation должна держать транзакцию как можно короче. Параллельный дубликат
-отсекается transaction-scoped advisory try-lock. Длительные операции ставятся в
-transactional outbox и продолжаются worker-ом с отдельной политикой retry/lease.
+Keep synchronous mutation transactions short. A transaction-scoped advisory
+try-lock rejects concurrent duplicates. Long operations go through the
+transactional outbox and continue in a worker with a separate retry/lease policy.
 
-## Версионирование
+## Versioning
 
-Внутри `v1` разрешены совместимые изменения:
+Compatible changes within `v1` include:
 
-- новое optional input field;
-- новое output field, которое старый клиент игнорирует;
-- новый error code только после обновления базового contract package.
+- a new optional input field;
+- a new output field that old clients ignore;
+- a new error code, only after updating the base contract package.
 
-Удаление/переименование поля, изменение смысла или required-статуса требует
-`v2` либо staged migration. Старую версию удаляют после измеренного окончания
-support window.
+Removing or renaming a field, changing its meaning or making it required needs
+`v2` or a staged migration. Remove an old version only after evidence shows its
+support window has ended.
 
-## Добавление процедуры
+## Adding a procedure
 
-1. Создать schemas и contract в `packages/contracts`.
-2. Создать/расширить owning backend module.
-3. Реализовать domain rule и application use case.
-4. Создать thin handler в `modules/*/transport`.
-5. Зарегистрировать Nest module capability в `apps/api/src/app/app.module.ts`.
-6. Добавить frontend wrapper в `shared/api` и query/mutation во владельце.
-7. Добавить success, validation и ожидаемый error test.
-8. Запустить `pnpm check`.
+1. Create schemas and a contract in `packages/contracts`.
+2. Create or extend the owning backend module.
+3. Implement the domain rule and application use case.
+4. Create a thin handler in `modules/*/transport`.
+5. Register the capability's Nest module in `apps/api/src/app/app.module.ts`.
+6. Add a frontend wrapper in `shared/api` and a query/mutation in its owning slice.
+7. Add success, validation and expected-error tests.
+8. Run `pnpm check`.
 
-Batching, streaming, uploads и subscriptions не добавляются в общий adapter
-заранее. Для них создаются отдельные transport capabilities и ADR.
+Do not add batching, streaming, uploads or subscriptions to the common adapter
+in advance. They need separate transport capabilities and ADRs.

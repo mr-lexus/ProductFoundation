@@ -1,9 +1,25 @@
 # Changelog
 
+[Русская версия](./CHANGELOG-RU.md)
+
 This project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and intends to use
 [Semantic Versioning](https://semver.org/) once the first public release is tagged.
 
 ## Unreleased
+
+### Changed
+
+- Reframed the README around system invariants, shared frontend ownership, contract-first RPC,
+  executable architecture, AI-assisted development constraints, and snapshot lifecycle trade-offs.
+- Added a shortest-path onboarding map, direct navigation through the durable reference flow, and
+  evidence rules for future product-driven foundation changes.
+- Made every documentation page available in English and Russian, with same-page language switches
+  and navigation that preserves the selected language. `check:docs` verifies page pairs and links.
+
+### Fixed
+
+- FSD architecture checks now resolve conventional and package self aliases, reject shared
+  frontend TypeScript path aliases that could drift from the checker, and include regression tests.
 
 ## [0.1.0-beta.1] - 2026-07-18
 

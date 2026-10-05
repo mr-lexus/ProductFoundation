@@ -1,58 +1,60 @@
 # ADR 0004: NestJS application framework with Fastify
 
+[Русская версия](./0004-nestjs-fastify-RU.md)
+
 - Status: Accepted
 - Date: 2026-07-11
 
 ## Context
 
-Backend должен долго развиваться людьми и AI-агентами, иметь явные business
-modules, dependency injection, lifecycle hooks, guards, filters, observability
-и несколько runtime entrypoints. Ручная композиция Hono была компактной, но не
-давала единого application framework для этих задач.
+People and AI agents must be able to maintain the backend over time. It needs
+explicit business modules, dependency injection, lifecycle hooks, guards, filters,
+observability and multiple runtime entrypoints. Manual Hono composition was
+compact but provided no common application framework for those needs.
 
-При этом shared contracts, application use cases и domain rules не должны
-зависеть от выбранного framework.
+Shared contracts, application use cases and domain rules must remain independent
+of the chosen framework.
 
 ## Decision
 
-Использовать NestJS как backend application framework и официальный Fastify
-adapter как HTTP runtime.
+Use NestJS as the backend application framework and its official Fastify adapter
+as the HTTP runtime.
 
-NestJS владеет:
+NestJS owns:
 
-- root и feature modules;
-- dependency injection и provider lifecycle;
+- root and feature modules;
+- dependency injection and provider lifecycle;
 - controllers;
-- global exception filters, guards и interceptors;
-- application bootstrap и graceful shutdown.
+- global exception filters, guards and interceptors;
+- application bootstrap and graceful shutdown.
 
-Каждый business capability экспортирует тонкий Nest module из своего
-`transport` слоя. Pure handlers/use cases подключаются через явные provider
-tokens и factories. Domain и application code не получают Nest decorators.
+Each business capability exports a thin Nest module from its `transport` layer.
+Connect pure handlers/use cases through explicit provider tokens and factories.
+Domain and application code receive no Nest decorators.
 
-Fastify владеет HTTP parsing и body limits. Framework/parser errors
-нормализуются global exception filter в общий RPC error envelope.
+Fastify owns HTTP parsing and body limits. A global exception filter normalizes
+framework/parser errors into the common RPC error envelope.
 
-Не используется Nest microservices `RpcException`: текущий протокол — HTTP JSON
-Protocol boundary из `@product-foundation/rpc`, product procedures из
-`packages/contracts`, а не Nest transport types.
+Do not use Nest microservices `RpcException`. The current protocol is HTTP JSON,
+with the protocol boundary in `@product-foundation/rpc` and product procedures
+in `packages/contracts`, rather than Nest transport types.
 
 ## Consequences
 
-Плюсы:
+Benefits:
 
-- единая модульная модель backend;
-- стандартный DI/lifecycle/testing ecosystem;
-- явные места для auth guards, observability и configuration;
-- Fastify body limit работает до materialization oversized payload;
-- core остаётся тестируемым без Nest testing container.
+- one backend module model;
+- a standard DI/lifecycle/testing ecosystem;
+- explicit locations for authorization guards, observability and configuration;
+- Fastify body limits apply before oversized payloads are materialized;
+- the core stays testable without a Nest testing container.
 
-Минусы:
+Costs:
 
-- decorators и DI требуют compiler configuration;
-- bootstrap тяжелее минимального Hono app;
-- возможен соблазн превращать каждый use case в `@Injectable()` wrapper;
-- Fastify-specific plugins должны проверяться на совместимость с Nest adapter.
+- decorators and DI need compiler configuration;
+- bootstrap is heavier than a minimal Hono app;
+- use cases can attract unnecessary `@Injectable()` wrappers;
+- Fastify-specific plugins must be checked for Nest adapter compatibility.
 
-Architecture gate запрещает NestJS/Fastify imports вне `src/app` и
-`src/modules/*/transport`, а Hono imports запрещены полностью.
+The architecture gate rejects NestJS/Fastify imports outside `src/app` and
+`src/modules/*/transport`, and rejects Hono imports entirely.

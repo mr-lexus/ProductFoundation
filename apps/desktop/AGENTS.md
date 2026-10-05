@@ -1,5 +1,7 @@
 # Tauri runtime
 
+[Русская версия](./AGENTS-RU.md)
+
 This shell owns its Vite entrypoint, Rust bootstrap, CSP and desktop adapters.
 Product UI comes from `@app/frontend-app`. Never import another application shell.
 Output is `apps/desktop/dist`; Tauri packages only this directory.

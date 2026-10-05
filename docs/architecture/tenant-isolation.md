@@ -1,5 +1,7 @@
 # Tenant isolation contract
 
+[Русская версия](./tenant-isolation-RU.md)
+
 `DATA_SCOPE_MODE=tenant` narrows product DI to `TenantTransactionRunner` and installs
 transaction-local `app.tenant_id`. This context is necessary, but it is not a database
 security boundary by itself.

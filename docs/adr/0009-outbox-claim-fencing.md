@@ -1,5 +1,7 @@
 # ADR 0009 — Outbox claims use expiring fencing tokens
 
+[Русская версия](./0009-outbox-claim-fencing-RU.md)
+
 - Status: accepted
 - Date: 2026-07-16
 

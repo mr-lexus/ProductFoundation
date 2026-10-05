@@ -1,5 +1,7 @@
 # ADR 0006 — Operation scope and durable execution primitives
 
+[Русская версия](./0006-tenant-and-durable-execution-primitives-RU.md)
+
 ## Status
 
 Accepted. Idempotency concurrency was amended by ADR 0008.

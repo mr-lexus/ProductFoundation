@@ -1,5 +1,7 @@
 # ADR 0011: Independent frontend runtime composition and artifacts
 
+[Русская версия](./0011-frontend-runtime-composition-RU.md)
+
 - Status: accepted
 - Date: 2026-10-04
 

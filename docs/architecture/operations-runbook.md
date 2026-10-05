@@ -1,5 +1,7 @@
 # Operations runbook
 
+[Русская версия](./operations-runbook-RU.md)
+
 ## Deployment order
 
 1. Verify CI, backup freshness and restore test status.

@@ -1,5 +1,7 @@
 # Product migrations
 
+[Русская версия](./README-RU.md)
+
 Place product-owned SQL migrations here using names such as
 `0001_create_accounts.sql`. They run after foundation migrations under the
 stable namespace configured by `PRODUCT_MIGRATION_NAMESPACE`.

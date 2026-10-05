@@ -1,5 +1,7 @@
 # ADR 0005 — PostgreSQL driver and SQL migrations
 
+[Русская версия](./0005-postgresql-and-sql-migrations-RU.md)
+
 - Status: accepted
 - Date: 2026-07-12
 

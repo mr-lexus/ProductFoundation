@@ -1,5 +1,7 @@
 # Code of Conduct
 
+[Русская версия](./CODE_OF_CONDUCT-RU.md)
+
 We are committed to a respectful, harassment-free collaboration space for everyone. Be direct
 about technical problems, assume good intent, critique ideas and changes rather than people, and
 respect privacy and differing levels of experience.

@@ -1,5 +1,7 @@
 # AI Development Rules — Backend PostgreSQL
 
+[Русская версия](./AGENTS-RU.md)
+
 `@product-foundation/backend-postgres` implements backend-core ports with `pg`
 and owns foundation SQL migrations.
 

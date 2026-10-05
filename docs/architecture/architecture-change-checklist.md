@@ -1,5 +1,7 @@
 # Architecture change checklist
 
+[Русская версия](./architecture-change-checklist-RU.md)
+
 Use this checklist in human and AI-agent reviews.
 
 ## Ownership
@@ -32,6 +34,6 @@ Use this checklist in human and AI-agent reviews.
 ## Evidence
 
 - Are unit, integration and boundary tests proportional to risk?
-- Does `pnpm check` pass with a real PostgreSQL service when data changed?
+- Does `pnpm check` pass, with real PostgreSQL integration tests when data changed?
 - Do `pnpm build`, `pnpm smoke:api` and container build pass?
 - Are ADR, runbook, environment contract and rollback steps updated?
